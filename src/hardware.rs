@@ -9,7 +9,7 @@ use embedded_alloc::Heap;
 use rp_pico::hal::clocks::init_clocks_and_plls;
 use rp_pico::hal::clocks::UsbClock;
 use rp_pico::hal::usb::UsbBus;
-use rp_pico::hal::{Clock, Sio, Watchdog};
+use rp_pico::hal::{Clock, Sio, Timer, Watchdog};
 use rp_pico::pac::{interrupt, Interrupt, NVIC, RESETS, USBCTRL_DPRAM, USBCTRL_REGS};
 use rp_pico::pac::{CorePeripherals, Peripherals};
 use rp_pico::Pins;
@@ -73,6 +73,8 @@ fn entry() -> ! {
 
     let delay = Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
+    let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
+
     let sio = Sio::new(pac.SIO);
 
     let pins = Pins::new(
@@ -82,7 +84,7 @@ fn entry() -> ! {
         &mut pac.RESETS,
     );
 
-    super::start(delay, pins);
+    super::start(delay, timer, pins);
 }
 
 /// Starts the serial communication.
