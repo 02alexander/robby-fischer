@@ -1,0 +1,16 @@
+[package]
+name = "hello-pico"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = "0.7.7"
+cortex-m-rt = "0.7.2"
+embedded-alloc = "0.5.0"
+embedded-hal = "0.2.7"
+rp-pico = "0.6.0"
+usb-device = "0.2.9"
+usbd-serial = "0.1.1"
+
+[profile.dev]
+opt-level = 1
