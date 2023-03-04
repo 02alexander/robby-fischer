@@ -8,6 +8,7 @@ use cortex_m::delay::Delay;
 use embedded_alloc::Heap;
 use rp_pico::hal::clocks::init_clocks_and_plls;
 use rp_pico::hal::clocks::UsbClock;
+use rp_pico::hal::pwm::Slices;
 use rp_pico::hal::usb::UsbBus;
 use rp_pico::hal::{Clock, Sio, Timer, Watchdog};
 use rp_pico::pac::{interrupt, Interrupt, NVIC, RESETS, USBCTRL_DPRAM, USBCTRL_REGS};
@@ -84,7 +85,9 @@ fn entry() -> ! {
         &mut pac.RESETS,
     );
 
-    super::start(delay, timer, pins);
+    let slices = Slices::new(pac.PWM, &mut pac.RESETS);
+
+    super::start(delay, timer, pins, slices);
 }
 
 /// Starts the serial communication.
