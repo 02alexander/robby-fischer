@@ -1,5 +1,7 @@
-use embedded_hal::digital::v2::OutputPin;
-use rp_pico::hal::Timer;
+use cortex_m::delay::Delay;
+use debugless_unwrap::DebuglessUnwrap;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
+use rp_pico::hal::{gpio::DynPin, Timer};
 
 const STEPS_PER_REVOLUTION: u32 = 200;
 const MAX_REVOLUTIONS_PER_SECOND: f32 = 6.25;
@@ -21,12 +23,11 @@ pub enum Direction {
     CounterClockwise,
 }
 
-#[derive(Debug)]
-pub struct Stepper<SP, DP, TMS1, TMS2, TMS3> {
+pub struct Stepper {
     step_size: StepSize,
-    step_pin: SP,
+    step_pin: DynPin,
     step_is_high: bool,
-    dir_pin: DP,
+    dir_pin: DynPin,
 
     cur_pos: i32, // In number of sixtenth steps
     pub target_pos: i32,
@@ -35,12 +36,10 @@ pub struct Stepper<SP, DP, TMS1, TMS2, TMS3> {
     step_time_us: u32,
     positive_direction: Direction,
     cur_direction: Direction,
-    mode_pins: Option<(TMS1, TMS2, TMS3)>,
+    mode_pins: Option<(DynPin, DynPin, DynPin)>,
 }
 
-impl<SP: OutputPin, DP: OutputPin, TMS1: OutputPin, TMS2: OutputPin, TMS3: OutputPin>
-    Stepper<SP, DP, TMS1, TMS2, TMS3>
-{
+impl Stepper {
     pub fn set_step_size(&mut self, step_size: StepSize) {
         self.step_size = step_size;
         if let Some((ms1, ms2, ms3)) = &mut self.mode_pins {
@@ -75,11 +74,11 @@ impl<SP: OutputPin, DP: OutputPin, TMS1: OutputPin, TMS2: OutputPin, TMS3: Outpu
     }
 
     pub fn new(
-        step_pin: SP,
-        dir_pin: DP,
+        step_pin: DynPin,
+        dir_pin: DynPin,
         step_size: StepSize,
         positive_direction: Direction,
-        mode_pins: Option<(TMS1, TMS2, TMS3)>,
+        mode_pins: Option<(DynPin, DynPin, DynPin)>,
     ) -> Self {
         let mut stepper = Stepper {
             step_size,
@@ -90,12 +89,30 @@ impl<SP: OutputPin, DP: OutputPin, TMS1: OutputPin, TMS2: OutputPin, TMS3: Outpu
             target_pos: 0,
             step_is_high: false,
             time_us_last_step: 0,
-            step_time_us: 400,
+            step_time_us: 4000,
             cur_direction: positive_direction,
             positive_direction,
         };
         stepper.set_step_size(step_size);
         stepper
+    }
+
+    pub fn calibrate<P: InputPin>(&mut self, button_pin: &mut P, slow_velocity: f32, fast_velocity: f32, delay: &mut Delay) {
+        let old_step_time = self.step_time_us;
+        self.set_velocity(fast_velocity);
+        self.set_direction(!self.positive_direction);
+        while button_pin.is_high().debugless_unwrap() {
+            self.step();
+            delay.delay_us(self.step_time_us);
+        }
+        self.set_velocity(slow_velocity);
+        self.set_direction(self.positive_direction);
+        while button_pin.is_low().debugless_unwrap() {
+            self.step();
+            delay.delay_us(self.step_time_us);
+        }
+        self.step_time_us = old_step_time;
+        self.cur_pos = 0;
     }
 
     pub fn goto_angle(&mut self, angle: f32) {
