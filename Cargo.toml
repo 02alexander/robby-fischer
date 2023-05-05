@@ -1,8 +1,15 @@
+[package]
+name = "robby-fischer"
+version = "0.1.0"
+edition = "2021"
 
+[dependencies]
+burktelefon = { path = "burktelefon" }
 
 [workspace]
 members = [
-    "arm"
+    "arm",
+    "burktelefon"
 ]
 
 [profile.dev]

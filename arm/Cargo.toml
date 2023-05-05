@@ -13,3 +13,5 @@ libm = "0.2.6"
 rp-pico = "0.6.0"
 usb-device = "0.2.9"
 usbd-serial = "0.1.1"
+burktelefon = { path = "../burktelefon" }
+robby-fischer = {path = ".." }

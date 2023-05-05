@@ -6,7 +6,10 @@ extern crate alloc;
 mod hardware;
 mod stepper;
 
-use alloc::{collections::VecDeque, string::String};
+use core::{str::FromStr, f32};
+
+use robby_fischer::{Command, Response};
+use alloc::{collections::VecDeque, string::{String, ToString}};
 use cortex_m::delay::Delay;
 use embedded_hal::{
     digital::v2::{InputPin, OutputPin},
@@ -43,12 +46,15 @@ struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
 impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
 
     pub fn calibrate(&mut self, delay: &mut Delay) {
-        self.sideways_stepper.calibrate(&mut self.sideways_button, 20.0, 1000., delay);
+        println!("waiting for sideways");
+        self.sideways_stepper.calibrate(&mut self.sideways_button, 20.0, 500., delay);
 
-        self.bottom_arm_stepper.calibrate(&mut self.bottom_arm_button, 20.0, 500., delay);
+        println!("waiting for bottom arm");
+        self.bottom_arm_stepper.calibrate(&mut self.bottom_arm_button, 20.0, 1000., delay);
         self.bottom_arm_stepper.goto_angle(200.);
 
-        self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 500., delay);
+        println!("waiting for top arm");
+        self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 200., delay);
     }
 
     pub fn is_calibrated(&self) -> bool {
@@ -56,24 +62,30 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
     }
 
     pub fn parse_command(&mut self, delay: &mut Delay, line: &str) {
-        if let Ok(vel) = line.trim().parse::<f32>() {
-            println!("set velocity to {}", vel);
-            self.bottom_arm_stepper.set_velocity(vel);
-            println!("{}", self.bottom_arm_stepper.get_step_time());
-        } else if line.starts_with("a") {
-            if let Ok(angle) = line.trim().parse::<f32>() {
-                self.bottom_arm_stepper.goto_angle(angle);
+        if let Ok(command) = Command::from_str(line) {
+            println!("{:?}", command);
+            match  command {
+                Command::Calibrate => {
+                    self.calibrate(delay);
+                },
+                Command::MoveSideways(angle) => {
+                    self.sideways_stepper.goto_angle(angle);
+                },
+                Command::MoveTopArm(angle) => {
+                    self.top_arm_stepper.goto_angle(angle);
+                },
+                Command::MoveBottomArm(angle) => {
+                    self.bottom_arm_stepper.goto_angle(angle);                    
+                },
+                Command::Queue(a1, a2, a3) => {
+                    self.movement_buffer.push_back((a1, a2, a3));
+                },
+                Command::QueueSize => {
+                    println!("{}",Response::QueueSizeResponse(self.movement_buffer.len() as u32, 12).to_string());
+                },
             }
-        } else if line.starts_with("c") {
-            println!("calibrating...");
-            self.calibrate(delay);
-            println!("done calibrating");
-        } else {
-            println!("got {}", line.trim());
         }
-    
     }
-    
     pub fn run(&mut self, timer: &Timer) {
         self.sideways_stepper.run(&timer);
         self.bottom_arm_stepper.run(&timer);
@@ -94,11 +106,11 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
     let mut channel = pwm.channel_b;
     channel.output_to(pins.gpio19.into_push_pull_output());
 
-    let bottom_arm_stepper = Stepper::new(
+    let top_arm_stepper = Stepper::new(
         DynPin::from(pins.gpio12.into_push_pull_output()),
         DynPin::from(pins.gpio11.into_push_pull_output()),
         StepSize::DIV16,
-        Direction::CounterClockwise,
+        Direction::Clockwise,
         Some((
             DynPin::from(pins.gpio15.into_push_pull_output()),
             DynPin::from(pins.gpio14.into_push_pull_output()),
@@ -106,7 +118,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
         )),
     );
     
-    let top_arm_stepper = Stepper::new(
+    let bottom_arm_stepper = Stepper::new(
         DynPin::from(pins.gpio7.into_push_pull_output()),
         DynPin::from(pins.gpio6.into_push_pull_output()),
         StepSize::DIV16,
@@ -117,7 +129,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
             DynPin::from(pins.gpio8.into_push_pull_output()),
         )),
     );
-
+    
     let sideways_stepper = Stepper::new(
         DynPin::from(pins.gpio2.into_push_pull_output()),
         DynPin::from(pins.gpio1.into_push_pull_output()),
@@ -135,16 +147,31 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
     // let button_pin = pins.gpio16.into_pull_up_input();
 
     let mut line_buffer = String::with_capacity(4096);
+    // let mut step_pin = DynPin::from(pins.gpio2.into_push_pull_output());
+    // let mut dir_pin = DynPin::from(pins.gpio1.into_push_pull_output());
+    // let mut ms1 = DynPin::from(pins.gpio5.into_push_pull_output());
+    // let mut ms2 = DynPin::from(pins.gpio4.into_push_pull_output());
+    // let mut ms3 = DynPin::from(pins.gpio3.into_push_pull_output());
+    // ms1.set_low();
+    // ms2.set_low();
+    // ms3.set_low();
+    // dir_pin.set_low();
 
-
+    // loop {
+        // delay.delay_ms(500);
+        // step_pin.set_high();
+        // delay.delay_ms(500);
+        // step_pin.set_low();
+        // sideways_stepper.step();
+    // }
 
     let mut arm = Arm {
         top_arm_stepper,
         sideways_stepper,
         bottom_arm_stepper,
 
-        bottom_arm_button: DynPin::from(pins.gpio16.into_pull_up_input()),
-        sideways_button: DynPin::from(pins.gpio17.into_pull_up_input()),
+        bottom_arm_button: DynPin::from(pins.gpio17.into_pull_up_input()),
+        sideways_button: DynPin::from(pins.gpio16.into_pull_up_input()),
         top_arm_button: DynPin::from(pins.gpio18.into_pull_up_input()),
 
         is_calibrated: false,
@@ -154,7 +181,6 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
 
     loop {
         arm.run(&timer);
-
 
         while serial_available() {
             let ch = char::from(read_byte());
