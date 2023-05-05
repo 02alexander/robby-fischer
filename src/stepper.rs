@@ -115,9 +115,16 @@ impl Stepper {
         self.cur_pos = 0;
     }
 
+
+    /// Gets angle in degrees from start.
+    pub fn get_angle(&self) -> f32 {
+        self.cur_pos as f32 / self.step_size as u8 as f32 / STEPS_PER_REVOLUTION as f32 * 360.
+    }
+
+    /// Goto angles in degrees.
     pub fn goto_angle(&mut self, angle: f32) {
         self.goto_position(
-            (self.step_size as u8 as f32 * (angle / STEPS_PER_REVOLUTION as f32)) as i32,
+            (self.step_size as u8 as f32 * (angle/360. * STEPS_PER_REVOLUTION as f32)) as i32,
         );
     }
 
