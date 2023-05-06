@@ -9,7 +9,8 @@ burktelefon = { path = "burktelefon" }
 [workspace]
 members = [
     "arm",
-    "burktelefon"
+    "burktelefon",
+    "planner"
 ]
 
 [profile.dev]

@@ -1,0 +1,164 @@
+warning: /home/alexander/prog/robby-fischer/planner/Cargo.toml: dependency (nix) specified without providing a local path, Git repository, or version to use. This will be considered an error in future versions
+warning: /home/alexander/prog/robby-fischer/planner/Cargo.toml: unused manifest key: dependencies.nix.vesrion
+warning: unused import: `fs::File`
+ --> planner/src/app.rs:1:27
+  |
+1 | use std::{time::Duration, fs::File};
+  |                           ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `chunks`
+  --> planner/src/app.rs:36:17
+   |
+36 |             let chunks = Layout::default()
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_chunks`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: constant `SQUARE_SIZE` is never used
+ --> planner/src/arm.rs:8:7
+  |
+8 | const SQUARE_SIZE: f64 = 0.05;
+  |       ^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: constant `BOTTOM_ANGLE_OFFSET` is never used
+  --> planner/src/arm.rs:10:7
+   |
+10 | const BOTTOM_ANGLE_OFFSET: f64 = 43.0;
+   |       ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TOP_ANGLE_OFFSET` is never used
+  --> planner/src/arm.rs:11:7
+   |
+11 | const TOP_ANGLE_OFFSET: f64 = 43.0;
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `H1POS` is never used
+  --> planner/src/arm.rs:13:7
+   |
+13 | const H1POS: Vector2<f64> = Vector2::new(0.0, 0.0);
+   |       ^^^^^
+
+warning: multiple variants are never constructed
+  --> planner/src/arm.rs:18:5
+   |
+17 | pub enum Role {
+   |          ---- variants in this enum
+18 |     Pawn,
+   |     ^^^^
+19 |     Knight,
+   |     ^^^^^^
+20 |     Bishop,
+   |     ^^^^^^
+21 |     Rook,
+   |     ^^^^
+22 |     Queen,
+   |     ^^^^^
+23 |     King,
+   |     ^^^^
+24 |     Duck,
+   |     ^^^^
+   |
+   = note: `Role` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: field `reader` is never read
+  --> planner/src/arm.rs:42:5
+   |
+37 | pub struct Arm {
+   |            --- field in this struct
+...
+42 |     reader: BufReader<crate::termdev::TerminalReader>,
+   |     ^^^^^^
+
+warning: associated function `get_response` is never used
+  --> planner/src/arm.rs:73:8
+   |
+73 |     fn get_response(&mut self) -> std::io::Result<Response> {
+   |        ^^^^^^^^^^^^
+
+warning: `planner` (bin "planner") generated 9 warnings
+    Finished dev [optimized + debuginfo] target(s) in 0.05s
+     Running `/home/alexander/prog/robby-fischer/target/debug/planner`
+MOVESIDEWAYS 0
+
+MOVESIDEWAYS 0
+
+MOVESIDEWAYS 5
+
+MOVESIDEWAYS 10
+
+MOVESIDEWAYS 15
+
+MOVESIDEWAYS 20
+
+MOVESIDEWAYS 25
+
+MOVESIDEWAYS 30
+
+MOVESIDEWAYS 35
+
+MOVESIDEWAYS 40
+
+MOVESIDEWAYS 45
+
+MOVESIDEWAYS 50
+
+MOVESIDEWAYS 55
+
+MOVESIDEWAYS 60
+
+MOVESIDEWAYS 65
+
+MOVESIDEWAYS 70
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 75
+
+MOVESIDEWAYS 70
+
+MOVESIDEWAYS 65
+
