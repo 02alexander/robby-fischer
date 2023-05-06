@@ -3,6 +3,8 @@ use debugless_unwrap::DebuglessUnwrap;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use rp_pico::hal::{gpio::DynPin, Timer};
 
+use crate::hardware::println;
+
 const STEPS_PER_REVOLUTION: u32 = 200;
 const MAX_REVOLUTIONS_PER_SECOND: f32 = 6.25;
 const MAX_VELOCITY: f32 = MAX_REVOLUTIONS_PER_SECOND * STEPS_PER_REVOLUTION as f32;
@@ -17,7 +19,7 @@ pub enum StepSize {
     DIV16 = 16,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     Clockwise,
     CounterClockwise,
@@ -29,8 +31,8 @@ pub struct Stepper {
     step_is_high: bool,
     dir_pin: DynPin,
 
-    cur_pos: i32, // In number of sixtenth steps
-    pub target_pos: i32,
+    pub cur_pos: i64, // In number of sixtenth steps
+    pub target_pos: i64,
 
     time_us_last_step: u32,
     step_time_us: u32,
@@ -93,6 +95,10 @@ impl Stepper {
             cur_direction: positive_direction,
             positive_direction,
         };
+
+        // Write to the directions pin.
+        stepper.set_direction(stepper.cur_direction);
+
         stepper.set_step_size(step_size);
         stepper
     }
@@ -124,11 +130,12 @@ impl Stepper {
     /// Goto angles in degrees.
     pub fn goto_angle(&mut self, angle: f32) {
         self.goto_position(
-            (self.step_size as u8 as f32 * (angle/360. * STEPS_PER_REVOLUTION as f32)) as i32,
+            (self.step_size as u8 as f32 * (angle/360. * STEPS_PER_REVOLUTION as f32)) as i64,
         );
     }
 
     pub fn set_direction(&mut self, direction: Direction) {
+        self.cur_direction = direction;
         match direction {
             Direction::Clockwise => {
                 let _ = self.dir_pin.set_high();
@@ -139,12 +146,9 @@ impl Stepper {
         }
     }
 
-    pub fn goto_position(&mut self, position: i32) {
+    pub fn goto_position(&mut self, position: i64) {
+        println!("goto_position({})", position);
         self.target_pos = position;
-        if self.target_pos < self.cur_pos {
-            self.set_direction(!self.positive_direction);
-            self.cur_direction = !self.positive_direction;
-        }
     }
 
     /// Velocity in degrees per second, always positive.
@@ -158,15 +162,15 @@ impl Stepper {
         self.step_time_us = (1e6 / steps_per_second) as u32 / 2; // /2 because it waits for switch high and for switch low,
     }
 
-    pub fn get_step_time(&self) -> u32 {
-        self.step_time_us
-    }
-
     pub fn step(&mut self) {
         if self.step_is_high {
             let _ = self.step_pin.set_low();
             self.step_is_high = false;
-            self.cur_pos += 1;
+            self.cur_pos += if self.cur_direction == self.positive_direction {
+                1
+            } else {
+                -1
+            };
         } else {
             let _ = self.step_pin.set_high();
             self.step_is_high = true;
@@ -174,6 +178,9 @@ impl Stepper {
     }
 
     pub fn run(&mut self, timer: &Timer) {
+        if self.target_pos < self.cur_pos {
+            self.set_direction(!self.positive_direction);
+        }
         if self.target_pos != self.cur_pos {
             let cur_time = timer.get_counter().ticks() as u32;
             if cur_time - self.time_us_last_step > self.step_time_us {

@@ -11,10 +11,6 @@ use core::{str::FromStr, f32};
 use robby_fischer::{Command, Response};
 use alloc::{collections::VecDeque, string::{String, ToString}};
 use cortex_m::delay::Delay;
-use embedded_hal::{
-    digital::v2::{InputPin, OutputPin},
-    PwmPin,
-};
 use hardware::read_byte;
 use rp_pico::hal::Timer;
 use rp_pico::hal::{
@@ -24,7 +20,11 @@ use rp_pico::hal::{
 use rp_pico::Pins;
 use stepper::{Direction, StepSize, Stepper};
 
-use crate::hardware::{println, read_until, serial_available};
+use crate::hardware::{println, serial_available};
+
+const TOP_RATIO: f32 =  66.0/ 21.0; // Stepper angle / arm angle
+const BOT_RATIO: f32 = (34.0/8.0)*(54.0/10.0); // Stepper angle / arm angle
+const SIDEWAYS_DEGREE_PER_M: f32 = 360.0 / (18.0 * 0.002); 
 
 struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
     is_calibrated: bool,
@@ -69,13 +69,13 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
                     self.calibrate(delay);
                 },
                 Command::MoveSideways(angle) => {
-                    self.sideways_stepper.goto_angle(angle);
+                    self.sideways_stepper.goto_angle(angle * SIDEWAYS_DEGREE_PER_M);
                 },
                 Command::MoveTopArm(angle) => {
-                    self.top_arm_stepper.goto_angle(angle);
+                    self.top_arm_stepper.goto_angle(angle * TOP_RATIO);
                 },
                 Command::MoveBottomArm(angle) => {
-                    self.bottom_arm_stepper.goto_angle(angle);                    
+                    self.bottom_arm_stepper.goto_angle(angle * BOT_RATIO);                    
                 },
                 Command::Queue(a1, a2, a3) => {
                     self.movement_buffer.push_back((a1, a2, a3));
@@ -83,9 +83,16 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
                 Command::QueueSize => {
                     println!("{}",Response::QueueSizeResponse(self.movement_buffer.len() as u32, 12).to_string());
                 },
+                Command::Position => {
+                    println!("{} {} {} {} {} {}", 
+                        self.sideways_stepper.cur_pos, self.sideways_stepper.target_pos, 
+                        self.bottom_arm_stepper.cur_pos, self.bottom_arm_stepper.target_pos, 
+                        self.top_arm_stepper.cur_pos, self.top_arm_stepper.target_pos);
+                }
             }
         }
     }
+
     pub fn run(&mut self, timer: &Timer) {
         self.sideways_stepper.run(&timer);
         self.bottom_arm_stepper.run(&timer);
@@ -141,29 +148,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
             DynPin::from(pins.gpio3.into_push_pull_output()),
         )),
     );
-
-
-
-    // let button_pin = pins.gpio16.into_pull_up_input();
-
     let mut line_buffer = String::with_capacity(4096);
-    // let mut step_pin = DynPin::from(pins.gpio2.into_push_pull_output());
-    // let mut dir_pin = DynPin::from(pins.gpio1.into_push_pull_output());
-    // let mut ms1 = DynPin::from(pins.gpio5.into_push_pull_output());
-    // let mut ms2 = DynPin::from(pins.gpio4.into_push_pull_output());
-    // let mut ms3 = DynPin::from(pins.gpio3.into_push_pull_output());
-    // ms1.set_low();
-    // ms2.set_low();
-    // ms3.set_low();
-    // dir_pin.set_low();
-
-    // loop {
-        // delay.delay_ms(500);
-        // step_pin.set_high();
-        // delay.delay_ms(500);
-        // step_pin.set_low();
-        // sideways_stepper.step();
-    // }
 
     let mut arm = Arm {
         top_arm_stepper,

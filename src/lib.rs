@@ -4,10 +4,12 @@ use burktelefon::{Burk};
 #[derive(Burk, Clone, Copy, Debug)]
 pub enum Response {
     QueueSizeResponse(u32, u32), // in queue, max queue size
+    Position(i32, i32, i32),
 }
 
 #[derive(Burk, Clone, Copy, Debug)]
 pub enum Command {
+    Position,
     Calibrate,
     MoveSideways(f32),
     MoveTopArm(f32),
