@@ -57,10 +57,6 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
         self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 200., delay);
     }
 
-    pub fn is_calibrated(&self) -> bool {
-        self.is_calibrated
-    }
-
     pub fn parse_command(&mut self, delay: &mut Delay, line: &str) {
         if let Ok(command) = Command::from_str(line) {
             println!("{:?}", command);
@@ -81,13 +77,24 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
                     self.movement_buffer.push_back((a1, a2, a3));
                 },
                 Command::QueueSize => {
-                    println!("{}",Response::QueueSizeResponse(self.movement_buffer.len() as u32, 12).to_string());
+                    println!("{}",Response::QueueSize(self.movement_buffer.len() as u32, 12).to_string());
                 },
                 Command::Position => {
-                    println!("{} {} {} {} {} {}", 
-                        self.sideways_stepper.cur_pos, self.sideways_stepper.target_pos, 
-                        self.bottom_arm_stepper.cur_pos, self.bottom_arm_stepper.target_pos, 
-                        self.top_arm_stepper.cur_pos, self.top_arm_stepper.target_pos);
+                    println!("{}", Response::Position(
+                        self.sideways_stepper.get_angle() / SIDEWAYS_DEGREE_PER_M, 
+                        self.bottom_arm_stepper.get_angle() / BOT_RATIO, 
+                        self.top_arm_stepper.get_angle() / TOP_RATIO,
+                    ));
+                    // println!("{:?} {:?} {:?} {:?} {:?} {:?}",self.sideways_stepper.cur_direction, self.sideways_stepper.positive_direction, 
+                    //                     self.bottom_arm_stepper.cur_direction, self.bottom_arm_stepper.positive_direction,
+                    //                     self.top_arm_stepper.cur_direction, self.top_arm_stepper.positive_direction);
+                    // println!("{} {} {} {} {} {}", 
+                    //     self.sideways_stepper.cur_pos, self.sideways_stepper.target_pos, 
+                    //     self.bottom_arm_stepper.cur_pos, self.bottom_arm_stepper.target_pos, 
+                    //     self.top_arm_stepper.cur_pos, self.top_arm_stepper.target_pos);
+                },
+                Command::IsCalibrated => {
+                    println!("{}",Response::IsCalibrated(self.is_calibrated).to_string());                    
                 }
             }
         }
@@ -113,7 +120,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
     let mut channel = pwm.channel_b;
     channel.output_to(pins.gpio19.into_push_pull_output());
 
-    let top_arm_stepper = Stepper::new(
+    let mut top_arm_stepper = Stepper::new(
         DynPin::from(pins.gpio12.into_push_pull_output()),
         DynPin::from(pins.gpio11.into_push_pull_output()),
         StepSize::DIV16,
@@ -125,7 +132,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
         )),
     );
     
-    let bottom_arm_stepper = Stepper::new(
+    let mut bottom_arm_stepper = Stepper::new( 
         DynPin::from(pins.gpio7.into_push_pull_output()),
         DynPin::from(pins.gpio6.into_push_pull_output()),
         StepSize::DIV16,
@@ -137,7 +144,7 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
         )),
     );
     
-    let sideways_stepper = Stepper::new(
+    let mut sideways_stepper = Stepper::new(
         DynPin::from(pins.gpio2.into_push_pull_output()),
         DynPin::from(pins.gpio1.into_push_pull_output()),
         StepSize::DIV16,
@@ -148,6 +155,10 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
             DynPin::from(pins.gpio3.into_push_pull_output()),
         )),
     );
+
+    bottom_arm_stepper.set_velocity(360.0);
+    top_arm_stepper.set_velocity(50.0);
+    sideways_stepper.set_velocity(180.0);
     let mut line_buffer = String::with_capacity(4096);
 
     let mut arm = Arm {

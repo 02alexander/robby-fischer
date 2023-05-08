@@ -36,8 +36,8 @@ pub struct Stepper {
 
     time_us_last_step: u32,
     step_time_us: u32,
-    positive_direction: Direction,
-    cur_direction: Direction,
+    pub positive_direction: Direction,
+    pub cur_direction: Direction,
     mode_pins: Option<(DynPin, DynPin, DynPin)>,
 }
 
@@ -180,6 +180,8 @@ impl Stepper {
     pub fn run(&mut self, timer: &Timer) {
         if self.target_pos < self.cur_pos {
             self.set_direction(!self.positive_direction);
+        } else {
+            self.set_direction(self.positive_direction);
         }
         if self.target_pos != self.cur_pos {
             let cur_time = timer.get_counter().ticks() as u32;
