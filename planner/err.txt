@@ -1,5 +1,6 @@
 warning: /home/alexander/prog/robby-fischer/planner/Cargo.toml: dependency (nix) specified without providing a local path, Git repository, or version to use. This will be considered an error in future versions
 warning: /home/alexander/prog/robby-fischer/planner/Cargo.toml: unused manifest key: dependencies.nix.vesrion
+   Compiling planner v0.1.0 (/home/alexander/prog/robby-fischer/planner)
 warning: unused import: `fs::File`
  --> planner/src/app.rs:1:27
   |
@@ -9,9 +10,9 @@ warning: unused import: `fs::File`
   = note: `#[warn(unused_imports)]` on by default
 
 warning: unused variable: `chunks`
-  --> planner/src/app.rs:36:17
+  --> planner/src/app.rs:46:17
    |
-36 |             let chunks = Layout::default()
+46 |             let chunks = Layout::default()
    |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_chunks`
    |
    = note: `#[warn(unused_variables)]` on by default
@@ -24,18 +25,6 @@ warning: constant `SQUARE_SIZE` is never used
   |
   = note: `#[warn(dead_code)]` on by default
 
-warning: constant `BOTTOM_ANGLE_OFFSET` is never used
-  --> planner/src/arm.rs:10:7
-   |
-10 | const BOTTOM_ANGLE_OFFSET: f64 = 43.0;
-   |       ^^^^^^^^^^^^^^^^^^^
-
-warning: constant `TOP_ANGLE_OFFSET` is never used
-  --> planner/src/arm.rs:11:7
-   |
-11 | const TOP_ANGLE_OFFSET: f64 = 43.0;
-   |       ^^^^^^^^^^^^^^^^
-
 warning: constant `H1POS` is never used
   --> planner/src/arm.rs:13:7
    |
@@ -43,122 +32,28 @@ warning: constant `H1POS` is never used
    |       ^^^^^
 
 warning: multiple variants are never constructed
-  --> planner/src/arm.rs:18:5
+  --> planner/src/arm.rs:21:5
    |
-17 | pub enum Role {
+20 | pub enum Role {
    |          ---- variants in this enum
-18 |     Pawn,
+21 |     Pawn,
    |     ^^^^
-19 |     Knight,
+22 |     Knight,
    |     ^^^^^^
-20 |     Bishop,
+23 |     Bishop,
    |     ^^^^^^
-21 |     Rook,
+24 |     Rook,
    |     ^^^^
-22 |     Queen,
+25 |     Queen,
    |     ^^^^^
-23 |     King,
+26 |     King,
    |     ^^^^
-24 |     Duck,
+27 |     Duck,
    |     ^^^^
    |
    = note: `Role` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
 
-warning: field `reader` is never read
-  --> planner/src/arm.rs:42:5
-   |
-37 | pub struct Arm {
-   |            --- field in this struct
-...
-42 |     reader: BufReader<crate::termdev::TerminalReader>,
-   |     ^^^^^^
-
-warning: associated function `get_response` is never used
-  --> planner/src/arm.rs:73:8
-   |
-73 |     fn get_response(&mut self) -> std::io::Result<Response> {
-   |        ^^^^^^^^^^^^
-
-warning: `planner` (bin "planner") generated 9 warnings
-    Finished dev [optimized + debuginfo] target(s) in 0.05s
+warning: `planner` (bin "planner") generated 5 warnings
+    Finished dev [optimized + debuginfo] target(s) in 0.35s
      Running `/home/alexander/prog/robby-fischer/target/debug/planner`
-MOVESIDEWAYS 0
-
-MOVESIDEWAYS 0
-
-MOVESIDEWAYS 5
-
-MOVESIDEWAYS 10
-
-MOVESIDEWAYS 15
-
-MOVESIDEWAYS 20
-
-MOVESIDEWAYS 25
-
-MOVESIDEWAYS 30
-
-MOVESIDEWAYS 35
-
-MOVESIDEWAYS 40
-
-MOVESIDEWAYS 45
-
-MOVESIDEWAYS 50
-
-MOVESIDEWAYS 55
-
-MOVESIDEWAYS 60
-
-MOVESIDEWAYS 65
-
-MOVESIDEWAYS 70
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 75
-
-MOVESIDEWAYS 70
-
-MOVESIDEWAYS 65
-
+'ISCAL false'

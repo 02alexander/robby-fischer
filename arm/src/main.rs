@@ -46,20 +46,16 @@ struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
 impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
 
     pub fn calibrate(&mut self, delay: &mut Delay) {
-        println!("waiting for sideways");
         self.sideways_stepper.calibrate(&mut self.sideways_button, 20.0, 500., delay);
 
-        println!("waiting for bottom arm");
         self.bottom_arm_stepper.calibrate(&mut self.bottom_arm_button, 20.0, 1000., delay);
         self.bottom_arm_stepper.goto_angle(200.);
 
-        println!("waiting for top arm");
         self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 200., delay);
     }
 
     pub fn parse_command(&mut self, delay: &mut Delay, line: &str) {
         if let Ok(command) = Command::from_str(line) {
-            println!("{:?}", command);
             match  command {
                 Command::Calibrate => {
                     self.calibrate(delay);
@@ -182,7 +178,6 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
             let ch = char::from(read_byte());
             line_buffer.push(ch);
             if line_buffer.len() >= 4096 {
-                println!("ERR line_buffer too large");
                 line_buffer.clear();
             }
             if ch == '\n' {
