@@ -7,8 +7,9 @@ use crate::termdev::TerminalDevice;
 
 const SQUARE_SIZE: f64 = 0.05;
 
-const BOTTOM_ANGLE_OFFSET: f64 = 43.0;
-const TOP_ANGLE_OFFSET: f64 = 43.0;
+const BOTTOM_ANGLE_OFFSET: f64 = 51.2655; // 43.0;
+const TOP_ANGLE_OFFSET: f64 = 26.641663; // 43.0;
+const TRANSLATION_OFFSET: Vector3<f64> = Vector3::new(-1.5939192e-01,  1.1850257e-02,  9.9999997e-05);
 
 const H1POS: Vector2<f64> = Vector2::new(0.0, 0.0);
 // const H1POS: Vector2<f64> = Vector2::new(0.0, 0.0);
@@ -38,7 +39,7 @@ pub struct State {
 impl State {}
 
 pub struct Arm {
-    claw_pos: Vector3<f64>,
+    pub claw_pos: Vector3<f64>,
     /// (0,0,0) is in the middle of the H1 square
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
@@ -71,7 +72,7 @@ impl Arm {
 
     pub fn move_claw_to(&mut self, position: Vector3<f64>) {
         self.claw_pos = position;
-        let (ba, ta) = Arm::angles(self.claw_pos);
+        let (ba, ta) = Arm::angles(self.claw_pos - TRANSLATION_OFFSET);
         // eprintln!("{ba} {ta}");
         let a1 = ba*180.0/PI - BOTTOM_ANGLE_OFFSET;
         let a2 = ta*180.0/PI - TOP_ANGLE_OFFSET +a1/3.0;
@@ -107,7 +108,7 @@ impl Arm {
         Ok(())
     }
 
-    fn angles(position: Vector3<f64>) -> (f64, f64) {
+    pub fn angles(position: Vector3<f64>) -> (f64, f64) {
         let theta = (position.z).atan2(position.x);
         let d = Vector2::new(position.x, position.z).norm();
         let q2 = -((d.powi(2) - BOTTOM_ARM_LENGTH.powi(2) - TOP_ARM_LENGTH.powi(2))

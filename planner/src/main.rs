@@ -3,9 +3,7 @@ mod arm;
 mod termdev;
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::{io::Stdout, panic::AssertUnwindSafe, sync::Mutex};
 use tui::{backend::CrosstermBackend, Terminal};
@@ -17,8 +15,12 @@ struct TerminalHandler {
 impl TerminalHandler {
     fn new() -> anyhow::Result<Self> {
         enable_raw_mode()?;
-        let mut stdout = std::io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        let stdout = std::io::stdout();
+        // execute!(
+        //     stdout, 
+        //     // EnterAlternateScreen, 
+        // )?;
+
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
         Ok(Self { terminal })
@@ -28,11 +30,10 @@ impl TerminalHandler {
 impl Drop for TerminalHandler {
     fn drop(&mut self) {
         // Cleanup.
-        let _ = execute!(
-            self.terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture,
-        );
+        // let _ = execute!(
+        //     self.terminal.backend_mut(),
+        //     // LeaveAlternateScreen,
+        // );
         let _ = disable_raw_mode();
         let _ = self.terminal.show_cursor();
     }

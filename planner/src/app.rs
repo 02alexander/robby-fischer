@@ -28,7 +28,7 @@ fn find_possible_tty_dev() -> Option<String> {
 }
 
 
-pub fn run(terminal: &mut Terminal<impl Backend>) -> anyhow::Result<()> {
+pub fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<()> {
     let ttyfile = find_possible_tty_dev().ok_or(anyhow!("Found no terminal device"))?;
     let mut td = TerminalDevice::new(ttyfile)?;
     td.configure(BaudRate::B115200)?;
@@ -40,19 +40,19 @@ pub fn run(terminal: &mut Terminal<impl Backend>) -> anyhow::Result<()> {
         arm.send_command(Command::Calibrate).unwrap();
     }
 
-    arm.move_claw_to(Vector3::new(0.29, 0.5, 0.29));
+    arm.move_claw_to(Vector3::new(0.35, 0.5, 0.01));
     loop {
-        terminal.draw(|b| {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(vec![Constraint::Length(3), Constraint::Min(10)])
-                .split(b.size());
-
-            
-        })?;
+        // terminal.draw(|b| {
+        //     let chunks = Layout::default()
+        //         .direction(Direction::Vertical)
+        //         .constraints(vec![Constraint::Length(3), Constraint::Min(10)])
+        //         .split(b.size());
+        // })?;
+        
 
         if let Ok(true) = event::poll(Duration::from_millis(1)) {
             let event = event::read()?;
+            let step_size = 0.002;
             match event {
                 Event::Key(key) => match key.code {
                     KeyCode::Char('a') => {
@@ -65,20 +65,24 @@ pub fn run(terminal: &mut Terminal<impl Backend>) -> anyhow::Result<()> {
                         state.file = (state.file as i32-1).max(0) as u8;
                         arm.raw_move(state)?;
                     },
+                    KeyCode::Char('p') => {
+                        println!("{:?}", Arm::angles(arm.claw_pos));
+                    },
+                    
                     KeyCode::Esc => {
                         break;
                     }
                     KeyCode::Left => {
-                        arm.move_claw(Vector3::new(-0.005, 0.0, 0.0));
+                        arm.move_claw(Vector3::new(-step_size, 0.0, 0.0));
                     }
                     KeyCode::Right => {
-                        arm.move_claw(Vector3::new(0.005, 0.0, 0.0));
+                        arm.move_claw(Vector3::new(step_size, 0.0, 0.0));
                     }
                     KeyCode::Up => {
-                        arm.move_claw(Vector3::new(0.0, 0.0, 0.005));
+                        arm.move_claw(Vector3::new(0.0, 0.0, step_size));
                     }
                     KeyCode::Down => {
-                        arm.move_claw(Vector3::new(0.0, 0.0, -0.005));
+                        arm.move_claw(Vector3::new(0.0, 0.0, -step_size));
                     }
                     _ => {}
                 },

@@ -52,6 +52,7 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
         self.bottom_arm_stepper.goto_angle(200.);
 
         self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 200., delay);
+        self.is_calibrated = true;
     }
 
     pub fn parse_command(&mut self, delay: &mut Delay, line: &str) {
