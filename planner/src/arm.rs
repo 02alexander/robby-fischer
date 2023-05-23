@@ -1,18 +1,18 @@
-use std::{io::{BufRead, BufReader, Write}, f64::consts::PI};
+use std::{
+    f64::consts::PI,
+    io::{BufRead, BufReader, Write},
+};
 
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Rotation2, Vector2, Vector3};
 use robby_fischer::{Command, Response};
 
 use crate::termdev::TerminalDevice;
 
-const SQUARE_SIZE: f64 = 0.05;
+pub const SQUARE_SIZE: f64 = 0.05;
 
-const BOTTOM_ANGLE_OFFSET: f64 = 51.2655; // 43.0;
-const TOP_ANGLE_OFFSET: f64 = 26.641663; // 43.0;
-const TRANSLATION_OFFSET: Vector3<f64> = Vector3::new(-1.5939192e-01,  1.1850257e-02,  9.9999997e-05);
-
-const H1POS: Vector2<f64> = Vector2::new(0.0, 0.0);
-// const H1POS: Vector2<f64> = Vector2::new(0.0, 0.0);
+const BOTTOM_ANGLE_OFFSET: f64 =  0.0; //51.2655; // 43.0;
+const TOP_ANGLE_OFFSET: f64 = 0.0; //26.641663; // 43.0;
+const TRANSLATION_OFFSET: Vector3<f64> =  Vector3::new(0.0, 0.0, 0.0);// Vector3::new(-1.5939192e-01, 1.1850257e-02, 9.9999997e-05);
 
 const BOTTOM_ARM_LENGTH: f64 = 0.29;
 const TOP_ARM_LENGTH: f64 = 0.29;
@@ -74,9 +74,11 @@ impl Arm {
         self.claw_pos = position;
         let (ba, ta) = Arm::angles(self.claw_pos - TRANSLATION_OFFSET);
         // eprintln!("{ba} {ta}");
-        let a1 = ba*180.0/PI - BOTTOM_ANGLE_OFFSET;
-        let a2 = ta*180.0/PI - TOP_ANGLE_OFFSET +a1/3.0;
-        self.send_command(Command::MoveBottomArm(a1 as f32)).unwrap();
+        let a1 = ba * 180.0 / PI - BOTTOM_ANGLE_OFFSET;
+        let a2 = ta * 180.0 / PI - TOP_ANGLE_OFFSET + a1 / 3.0;
+        self.send_command(Command::MoveSideways(position.y as f32)).unwrap();
+        self.send_command(Command::MoveBottomArm(a1 as f32))
+            .unwrap();
         self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
     }
 
@@ -114,9 +116,19 @@ impl Arm {
         let q2 = -((d.powi(2) - BOTTOM_ARM_LENGTH.powi(2) - TOP_ARM_LENGTH.powi(2))
             / (2.0 * BOTTOM_ARM_LENGTH * TOP_ARM_LENGTH))
             .acos();
-        let thetak = (TOP_ARM_LENGTH*q2.sin()).atan2(BOTTOM_ARM_LENGTH+TOP_ARM_LENGTH*q2.cos());
-        let q1 = theta-thetak;
+        let thetak =
+            (TOP_ARM_LENGTH * q2.sin()).atan2(BOTTOM_ARM_LENGTH + TOP_ARM_LENGTH * q2.cos());
+        let q1 = theta - thetak;
 
         (PI - q1, -q2)
+    }
+
+    /// Calculates the claw position from the angles given in degrees.
+    pub fn position_from_angles(theta1: f64, theta2: f64) -> Vector2<f64> {
+        let bottom_arm = Vector2::new(-0.29, 0.0);
+        let top_arm = Vector2::new(-0.29, 0.0);
+        let rot1 = Rotation2::new(-theta1 * PI / 180.0);
+        let rot2 = Rotation2::new(-theta2 * PI / 180.0);
+        rot1 * (bottom_arm + rot2 * top_arm)
     }
 }

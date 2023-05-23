@@ -3,8 +3,6 @@ use debugless_unwrap::DebuglessUnwrap;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use rp_pico::hal::{gpio::DynPin, Timer};
 
-use crate::hardware::println;
-
 const STEPS_PER_REVOLUTION: u32 = 200;
 const MAX_REVOLUTIONS_PER_SECOND: f32 = 6.25;
 const MAX_VELOCITY: f32 = MAX_REVOLUTIONS_PER_SECOND * STEPS_PER_REVOLUTION as f32;
@@ -147,7 +145,6 @@ impl Stepper {
     }
 
     pub fn goto_position(&mut self, position: i64) {
-        println!("goto_position({})", position);
         self.target_pos = position;
     }
 

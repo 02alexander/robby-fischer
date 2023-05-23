@@ -48,6 +48,8 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
     pub fn calibrate(&mut self, delay: &mut Delay) {
         self.sideways_stepper.calibrate(&mut self.sideways_button, 20.0, 500., delay);
 
+        self.top_arm_stepper.calibrate(&mut self.top_arm_button, 20.0, 200., delay);
+
         self.bottom_arm_stepper.calibrate(&mut self.bottom_arm_button, 20.0, 1000., delay);
         self.bottom_arm_stepper.goto_angle(200.);
 
@@ -81,14 +83,7 @@ impl<S: SliceId, M: SliceMode, C: ChannelId> Arm<S, M, C> {
                         self.sideways_stepper.get_angle() / SIDEWAYS_DEGREE_PER_M, 
                         self.bottom_arm_stepper.get_angle() / BOT_RATIO, 
                         self.top_arm_stepper.get_angle() / TOP_RATIO,
-                    ));
-                    // println!("{:?} {:?} {:?} {:?} {:?} {:?}",self.sideways_stepper.cur_direction, self.sideways_stepper.positive_direction, 
-                    //                     self.bottom_arm_stepper.cur_direction, self.bottom_arm_stepper.positive_direction,
-                    //                     self.top_arm_stepper.cur_direction, self.top_arm_stepper.positive_direction);
-                    // println!("{} {} {} {} {} {}", 
-                    //     self.sideways_stepper.cur_pos, self.sideways_stepper.target_pos, 
-                    //     self.bottom_arm_stepper.cur_pos, self.bottom_arm_stepper.target_pos, 
-                    //     self.top_arm_stepper.cur_pos, self.top_arm_stepper.target_pos);
+                    ).to_string());
                 },
                 Command::IsCalibrated => {
                     println!("{}",Response::IsCalibrated(self.is_calibrated).to_string());                    
