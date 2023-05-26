@@ -101,7 +101,13 @@ impl Stepper {
         stepper
     }
 
-    pub fn calibrate<P: InputPin>(&mut self, button_pin: &mut P, slow_velocity: f32, fast_velocity: f32, delay: &mut Delay) {
+    pub fn calibrate<P: InputPin>(
+        &mut self,
+        button_pin: &mut P,
+        slow_velocity: f32,
+        fast_velocity: f32,
+        delay: &mut Delay,
+    ) {
         let old_step_time = self.step_time_us;
         self.set_velocity(fast_velocity);
         self.set_direction(!self.positive_direction);
@@ -119,7 +125,6 @@ impl Stepper {
         self.cur_pos = 0;
     }
 
-
     /// Gets angle in degrees from start.
     pub fn get_angle(&self) -> f32 {
         self.cur_pos as f32 / self.step_size as u8 as f32 / STEPS_PER_REVOLUTION as f32 * 360.
@@ -128,7 +133,7 @@ impl Stepper {
     /// Goto angles in degrees.
     pub fn goto_angle(&mut self, angle: f32) {
         self.goto_position(
-            (self.step_size as u8 as f32 * (angle/360. * STEPS_PER_REVOLUTION as f32)) as i64,
+            (self.step_size as u8 as f32 * (angle / 360. * STEPS_PER_REVOLUTION as f32)) as i64,
         );
     }
 

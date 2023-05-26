@@ -1,32 +1,36 @@
 #![no_std]
-use burktelefon::{Burk};
+use burktelefon::Burk;
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
 pub enum Response {
-    #[burk(name="ISCAL")]
+    #[burk(name = "iscal")]
     IsCalibrated(bool),
-    #[burk(name="QS")]
+    #[burk(name = "qs")]
     QueueSize(u32, u32), // in queue, max queue size
-    #[burk(name="POS")]
+    #[burk(name = "pos")]
     Position(f32, f32, f32),
 }
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
 pub enum Command {
-    #[burk(name="POS")]
+    #[burk(name = "pos")]
     Position,
-    #[burk(name="ISCAL")]
+    #[burk(name = "grip")]
+    Grip,
+    #[burk(name = "rel")]
+    Release,
+    #[burk(name = "iscal")]
     IsCalibrated,
-    #[burk(name="CAL")]
+    #[burk(name = "cal")]
     Calibrate,
-    #[burk(name="MVS")]
+    #[burk(name = "mvs")]
     MoveSideways(f32),
-    #[burk(name="MVT")]
+    #[burk(name = "mvt")]
     MoveTopArm(f32),
-    #[burk(name="MVB")]
-    MoveBottomArm(f32),    
-    #[burk(name="Q")]
+    #[burk(name = "mvb")]
+    MoveBottomArm(f32),
+    #[burk(name = "q")]
     Queue(f32, f32, f32), // sideways, top arm, bottom arm, speed.
-    #[burk(name="QS")]
+    #[burk(name = "qs")]
     QueueSize,
 }

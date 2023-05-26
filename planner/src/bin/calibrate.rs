@@ -1,11 +1,13 @@
-use anyhow::anyhow;
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
-use planner::{arm::{Arm, SQUARE_SIZE}, termdev::TerminalDevice};
+use planner::{
+    arm::{Arm, SQUARE_SIZE},
+    termdev::TerminalDevice,
+};
 use robby_fischer::{Command, Response};
 use std::{io::Stdout, panic::AssertUnwindSafe, sync::Mutex, time::Duration};
 use tui::{
@@ -34,21 +36,6 @@ impl Drop for TerminalHandler {
     }
 }
 
-fn find_possible_tty_dev() -> Option<String> {
-    for dir_entry in std::fs::read_dir("/dev/").ok()? {
-        let dir_entry = dir_entry.ok()?;
-        let os_file_name = dir_entry.file_name();
-        let file_name = os_file_name.to_string_lossy();
-        if file_name.starts_with("tty")
-            && file_name.len() >= 6
-            && (&file_name[3..6] == "USB" || &file_name[3..6] == "ACM")
-        {
-            return Some("/dev/".to_string() + &file_name);
-        }
-    }
-    None
-}
-
 static PANICINFO: Mutex<Option<String>> = Mutex::new(None);
 
 fn main() {
@@ -59,20 +46,17 @@ fn main() {
 
     let res = {
         let mut term_handler = TerminalHandler::new().unwrap();
-        std::panic::catch_unwind(AssertUnwindSafe(|| {
-            run(&mut term_handler.terminal)
-        }))
+        std::panic::catch_unwind(AssertUnwindSafe(|| run(&mut term_handler.terminal)))
     };
 
-    println!("");
+    println!();
     match res {
         Ok(ret) => {
             if let Ok(positions) = ret {
                 for (i, ((a1, a2), hor)) in positions.iter().enumerate() {
-                    let x_pos = SQUARE_SIZE*i as f64;
+                    let x_pos = SQUARE_SIZE * i as f64;
                     println!("(jnp.array([{a1}, {a2}, {hor}]), jnp.array([{x_pos}, 0.0, 0.0])),");
                 }
-    
             } else {
                 println!("{:?}", ret);
             }
@@ -85,17 +69,14 @@ fn main() {
 }
 
 fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64), f64)>> {
-    let ttyfile = find_possible_tty_dev().ok_or(anyhow!("Found no terminal device"))?;
-    let mut td = TerminalDevice::new(ttyfile)?;
+    let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
     td.configure(BaudRate::B115200)?;
     let mut arm = Arm::new(td);
 
-    arm.send_command(Command::IsCalibrated).unwrap();
-    let response = arm.get_response().unwrap();
-    if response != Response::IsCalibrated(true) {
-        arm.send_command(Command::Calibrate).unwrap();
-    }
-    // arm.move_claw_to(Vector3::new(0.35, 0.5, 0.01));
+    arm.check_calib();
+    arm.bottom_angle_offset = 0.0;
+    arm.top_angle_offset = 0.0;
+    arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
 
     let mut current_square = 0;
     let mut positions = Vec::new();
@@ -113,15 +94,14 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
         println!("expected position");
     }
 
-
     let mut changed = true;
     println!("Move to row {current_square}");
     loop {
         if let Ok(true) = event::poll(Duration::from_millis(1)) {
             let event = event::read()?;
             let step_size = 0.8;
-            match event {
-                Event::Key(key) => match key.code {
+            if let Event::Key(key) = event {
+                match key.code {
                     KeyCode::Char('p') => {
                         println!("{:?}", Arm::angles(arm.claw_pos));
                     }
@@ -139,14 +119,14 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
                     KeyCode::Char('a') => {
                         arm.claw_pos.y -= 0.002;
                         changed = true;
-                    },
+                    }
                     KeyCode::Char('t') => {
                         arm.claw_pos.y += 0.002;
                         changed = true;
-                    },
+                    }
                     KeyCode::Char('u') => {
                         positions.pop();
-                        current_square = 0.max(current_square-1);
+                        current_square = 0.max(current_square - 1);
                     }
                     KeyCode::Left => {
                         theta1 -= step_size;
@@ -165,8 +145,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
                         changed = true;
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
             if changed {
                 let new_claw_pos2d = Arm::position_from_angles(theta1, theta2);

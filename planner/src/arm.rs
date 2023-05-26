@@ -10,10 +10,6 @@ use crate::termdev::TerminalDevice;
 
 pub const SQUARE_SIZE: f64 = 0.05;
 
-const BOTTOM_ANGLE_OFFSET: f64 =  0.0; //51.2655; // 43.0;
-const TOP_ANGLE_OFFSET: f64 = 0.0; //26.641663; // 43.0;
-const TRANSLATION_OFFSET: Vector3<f64> =  Vector3::new(0.0, 0.0, 0.0);// Vector3::new(-1.5939192e-01, 1.1850257e-02, 9.9999997e-05);
-
 const BOTTOM_ARM_LENGTH: f64 = 0.29;
 const TOP_ARM_LENGTH: f64 = 0.29;
 
@@ -40,6 +36,11 @@ impl State {}
 
 pub struct Arm {
     pub claw_pos: Vector3<f64>,
+
+    pub bottom_angle_offset: f64,
+    pub top_angle_offset: f64,
+    pub translation_offset: Vector3<f64>,
+
     /// (0,0,0) is in the middle of the H1 square
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
@@ -53,6 +54,9 @@ impl Arm {
 
         let arm = Arm {
             claw_pos: Vector3::new(0.0, 0.0, 0.0),
+            bottom_angle_offset: 0.0,
+            top_angle_offset: 0.0,
+            translation_offset: Vector3::new(0.0, 0.0, 0.0),
             reader,
             writer,
             state: State {
@@ -66,17 +70,28 @@ impl Arm {
         arm
     }
 
+    pub fn check_calib(&mut self) {
+        self.send_command(Command::IsCalibrated).unwrap();
+        let response = self.get_response().unwrap();
+        if response != Response::IsCalibrated(true) {
+            self.send_command(Command::Calibrate).unwrap();
+        }
+    }
+
     pub fn move_claw(&mut self, change: Vector3<f64>) {
         self.move_claw_to(self.claw_pos + change);
     }
 
     pub fn move_claw_to(&mut self, position: Vector3<f64>) {
         self.claw_pos = position;
-        let (ba, ta) = Arm::angles(self.claw_pos - TRANSLATION_OFFSET);
+        let (ba, ta) = Arm::angles(self.claw_pos - self.translation_offset);
         // eprintln!("{ba} {ta}");
-        let a1 = ba * 180.0 / PI - BOTTOM_ANGLE_OFFSET;
-        let a2 = ta * 180.0 / PI - TOP_ANGLE_OFFSET + a1 / 3.0;
-        self.send_command(Command::MoveSideways(position.y as f32)).unwrap();
+        let a1 = ba * 180.0 / PI - self.bottom_angle_offset;
+        let a2 = ta * 180.0 / PI - self.top_angle_offset + a1 / 3.0;
+        self.send_command(Command::MoveSideways(
+            (self.claw_pos - self.translation_offset).y as f32,
+        ))
+        .unwrap();
         self.send_command(Command::MoveBottomArm(a1 as f32))
             .unwrap();
         self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
@@ -86,7 +101,7 @@ impl Arm {
         let mut buf: Vec<_> = command.to_string().bytes().collect();
         buf.push('\n' as u8);
         // eprintln!("{}", String::from_utf8_lossy(&buf));
-        self.writer.write_all(&mut buf)?;
+        self.writer.write_all(&buf)?;
         self.writer.flush()?;
         Ok(())
     }

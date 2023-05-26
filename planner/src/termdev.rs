@@ -9,7 +9,6 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-
 pub struct TerminalDevice {
     fd: i32,
     termios: Termios,
