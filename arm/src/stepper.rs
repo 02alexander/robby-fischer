@@ -153,6 +153,10 @@ impl Stepper {
         self.target_pos = position;
     }
 
+    pub fn is_at_target_margin(&self, margin: i64) -> bool {
+        (self.cur_pos - self.target_pos).abs() <= margin
+    }
+
     /// Velocity in degrees per second, always positive.
     pub fn set_velocity(&mut self, velocity: f32) {
         let mut velocity = libm::fabsf(velocity);

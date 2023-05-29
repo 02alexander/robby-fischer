@@ -80,13 +80,17 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                 Command::MoveBottomArm(angle) => {
                     self.bottom_arm_stepper.goto_angle(angle * BOT_RATIO);
                 }
-                Command::Queue(a1, a2, a3) => {
-                    self.movement_buffer.push_back((a1, a2, a3));
+                Command::Queue(a1, a2, sd) => {
+                    self.movement_buffer.push_back((
+                        a1 * BOT_RATIO,
+                        a2 * TOP_RATIO,
+                        sd * SIDEWAYS_DEGREE_PER_M,
+                    ));
                 }
                 Command::QueueSize => {
                     println!(
                         "{}",
-                        Response::QueueSize(self.movement_buffer.len() as u32, 12).to_string()
+                        Response::QueueSize(self.movement_buffer.len() as u32, 300).to_string()
                     );
                 }
                 Command::Position => {
@@ -104,20 +108,47 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                     println!("{}", Response::IsCalibrated(self.is_calibrated).to_string());
                 }
                 Command::Grip => {
-                    // println!("{} {}", self.servo_channel.get_max_duty(), (self.servo_channel.get_max_duty() as f64 *(180.0/180.0))  as u16);
-                    // self.servo_channel.set_duty((self.servo_channel.get_max_duty() as f64 *(1.0/180.0))  as u16);
                     self.servo_channel.set_duty(1000 + 300);
                 }
                 Command::Release => {
                     self.servo_channel.set_duty(1000);
-                    // println!("{} {}", self.servo_channel.get_max_duty(), (self.servo_channel.get_max_duty() as f64 *(0.0/180.0))  as u16);
-                    // self.servo_channel.set_duty((self.servo_channel.get_max_duty() as f64 *(0.0/180.0))  as u16);
                 }
             }
         }
     }
 
+    fn is_in_position_margin(&mut self, margin: i64) -> bool {
+        return self.top_arm_stepper.is_at_target_margin(margin)
+            && self.bottom_arm_stepper.is_at_target_margin(margin)
+            && self.sideways_stepper.is_at_target_margin(margin);
+    }
+
+    fn check_queue(&mut self) {
+        if self.movement_buffer.len() > 0 {
+            if self.is_in_position_margin(3) {
+                let (a1, a2, sd) = self.movement_buffer.pop_front().unwrap();
+                let max_dist = (libm::fabsf(self.bottom_arm_stepper.get_angle() - a1))
+                    .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2))
+                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd))+0.0001;
+                
+                self.bottom_arm_stepper.goto_angle(a1);
+                self.top_arm_stepper.goto_angle(a2);
+                self.sideways_stepper.goto_angle(sd);
+
+                let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_dist;
+                let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_dist;
+                let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_dist;
+
+                self.bottom_arm_stepper.set_velocity(norma1 * 500.0);
+                self.top_arm_stepper.set_velocity(norma2 * 500.0);
+                self.sideways_stepper.set_velocity(normsd * 500.0);
+
+            }
+        }
+    }
+
     pub fn run(&mut self, timer: &Timer) {
+        self.check_queue();
         self.sideways_stepper.run(&timer);
         self.bottom_arm_stepper.run(&timer);
         self.top_arm_stepper.run(&timer);
