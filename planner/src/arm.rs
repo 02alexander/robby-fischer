@@ -14,13 +14,6 @@ use crate::termdev::TerminalDevice;
 const BOTTOM_ARM_LENGTH: f64 = 0.29;
 const TOP_ARM_LENGTH: f64 = 0.29;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Action {
-    Goto(Vector3<f64>),
-    Grip,
-    Release,
-}
-
 pub struct Arm {
     pub claw_pos: Vector3<f64>,
 
@@ -133,7 +126,17 @@ impl Arm {
         self.smooth_move_claw_to(pos);
     }
 
+    /// Computes the coordinates to move to compensate for inaccuracies when moving on the opposite end of the board.
+    pub fn practical_real_world_coordinate(mut pos: Vector3<f64>) -> Vector3<f64> {
+        if pos.x >= 0.2 {
+            pos.x += (pos.x - 0.175) / 0.175 * 0.003;
+            pos.z += (pos.x - 0.175) / 0.175 * 0.01;
+        }
+        pos
+    }
+
     pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
+        let pos = Self::practical_real_world_coordinate(pos);
         const N_POINTS_CM: f64 = 1.0;
         let npoints = (self.claw_pos - pos).norm() * 100.0 * N_POINTS_CM;
         for chunk in linspace(self.claw_pos, pos, npoints as u32)
@@ -177,24 +180,6 @@ impl Arm {
     pub fn release(&mut self) {
         self.send_command(Command::Release).unwrap();
         std::thread::sleep(Duration::from_millis(400));
-    }
-
-    pub fn do_actions(&mut self, actions: &[Action]) {
-        for action in actions {
-            match action {
-                Action::Goto(v) => {
-                    self.smooth_move_claw_to(*v);
-                }
-                Action::Grip => {
-                    self.send_command(Command::Grip).unwrap();
-                    std::thread::sleep(Duration::from_millis(300));
-                }
-                Action::Release => {
-                    self.send_command(Command::Release).unwrap();
-                    std::thread::sleep(Duration::from_millis(300));
-                }
-            }
-        }
     }
 }
 

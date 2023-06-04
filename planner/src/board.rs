@@ -71,7 +71,7 @@ impl Board {
         arm.release();
 
         // Move claw up so it isn't in the way.
-        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT);
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
 
         self.position[end] = self.position[start];
         self.position[start] = None;
@@ -95,7 +95,7 @@ impl Board {
         arm.release();
 
         // Move claw up so it isn't in the way.
-        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT);
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
 
         self.position[sq] = None;
     }

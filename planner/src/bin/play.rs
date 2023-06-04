@@ -19,8 +19,8 @@ fn main() -> anyhow::Result<()> {
     // println!("{:?}", planner::board::Pieceholder::real_world_coordinate(p));
     // arm.smooth_move_claw_to(Vector3::new(0.0, 0.2, 0.01));
     // arm.smooth_move_claw_to(Vector3::new(0.0, 0.59, 0.127));
-    board.move_piece(&mut arm, Square::new(7, 1), Square::new(7, 2));
-    board.move_piece(&mut arm, Square::new(7, 6), Square::new(7, 7));
+    board.move_piece(&mut arm, Square::new(4, 0), Square::new(4, 2));
+    board.move_piece(&mut arm, Square::new(4, 7), Square::new(4, 4));
     // board.remove_piece(&mut arm, Square::new(7, 4));
     // let stdin = io::stdin().lock();
     // for line in stdin.lines() {
