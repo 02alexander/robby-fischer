@@ -71,13 +71,16 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                     self.calibrate(delay);
                 }
                 Command::MoveSideways(angle) => {
+                    self.sideways_stepper.set_velocity(800.0);
                     self.sideways_stepper
                         .goto_angle(angle * SIDEWAYS_DEGREE_PER_M);
                 }
                 Command::MoveTopArm(angle) => {
+                    self.top_arm_stepper.set_velocity(150.0);
                     self.top_arm_stepper.goto_angle(angle * TOP_RATIO);
                 }
                 Command::MoveBottomArm(angle) => {
+                    self.bottom_arm_stepper.set_velocity(600.0);
                     self.bottom_arm_stepper.goto_angle(angle * BOT_RATIO);
                 }
                 Command::Queue(a1, a2, sd) => {
@@ -126,9 +129,9 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
     fn check_queue(&mut self) {
         if self.movement_buffer.len() > 0 {
             if self.is_in_position_margin(3) {
-                const BOT_ARM_MAX_SPEED: f32 = 800.0;
-                const TOP_ARM_MAX_SPEED: f32 = 150.0;
-                const SIDEWAYS_MAX_SPEED: f32 = 500.0;
+                const BOT_ARM_MAX_SPEED: f32 = 1000.0;
+                const TOP_ARM_MAX_SPEED: f32 = 100.0;
+                const SIDEWAYS_MAX_SPEED: f32 = 900.0;
 
                 let (a1, a2, sd) = self.movement_buffer.pop_front().unwrap();
                 let max_time = (libm::fabsf(self.bottom_arm_stepper.get_angle() - a1) / BOT_ARM_MAX_SPEED)

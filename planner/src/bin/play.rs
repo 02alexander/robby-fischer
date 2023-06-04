@@ -1,13 +1,6 @@
-use std::io::{self, BufRead};
-
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
-use planner::{
-    arm::{Arm, SQUARE_SIZE},
-    termdev::TerminalDevice,
-};
-use robby_fischer::Command;
-
+use planner::{arm::Arm, board::Board, chess::Square, termdev::TerminalDevice};
 fn main() -> anyhow::Result<()> {
     let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
     td.configure(BaudRate::B115200)?;
@@ -15,42 +8,20 @@ fn main() -> anyhow::Result<()> {
 
     arm.check_calib();
 
-
     arm.bottom_angle_offset = 49.84891891479492;
     arm.top_angle_offset = 38.3333625793457;
-    arm.translation_offset = Vector3::new(-0.13726842403411865, -0.279990017414093, 0.0026969648897647858);
+    arm.translation_offset = Vector3::new(-0.13726842403411865, -0.076, 0.0026969648897647858);
 
     arm.move_claw_to(Vector3::new(0.10, 0.0, 0.29));
 
-    let stdin = io::stdin().lock();
-    let mut height = 0.01;
-    for line in stdin.lines() {
-        let line = line.unwrap();
-        if line.starts_with("h") {
-            if let Ok(d) = line[1..].parse::<f64>() {
-                height = d * 0.01 + 0.01;
-            }
-        }
-        match line.trim() {
-            "grip" => {
-                arm.send_command(Command::Grip).unwrap();
-            }
-            "rel" => {
-                arm.send_command(Command::Release).unwrap();
-            }
-            _ => {}
-        }
-        match line.parse::<usize>() {
-            Ok(v) => {
-                let pos = Vector3::new(v as f64 * SQUARE_SIZE, 0.0, height);
-                arm.smooth_move_claw_to(pos);
-            }
-            Err(e) => {
-                println!("{:?}", e);
-            }
-        }
-    }
-
+    let mut board = Board::default();
+    // let p = board.pieceholder.push(planner::chess::Piece::from_fen_char('p').unwrap()).unwrap();
+    // println!("{:?}", planner::board::Pieceholder::real_world_coordinate(p));
+    // arm.smooth_move_claw_to(Vector3::new(0.0, 0.2, 0.01));
+    // arm.smooth_move_claw_to(Vector3::new(0.0, 0.59, 0.127));
+    board.move_piece(&mut arm, Square::new(7, 1), Square::new(7, 2));
+    board.move_piece(&mut arm, Square::new(7, 6), Square::new(7, 7));
+    // board.remove_piece(&mut arm, Square::new(7, 4));
     // let stdin = io::stdin().lock();
     // for line in stdin.lines() {
     //     let line = line.unwrap();

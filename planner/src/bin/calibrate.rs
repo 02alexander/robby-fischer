@@ -4,10 +4,8 @@ use crossterm::{
 };
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
-use planner::{
-    arm::{Arm, SQUARE_SIZE},
-    termdev::TerminalDevice,
-};
+use planner::board::Board;
+use planner::{arm::Arm, termdev::TerminalDevice};
 use robby_fischer::{Command, Response};
 use std::{io::Stdout, panic::AssertUnwindSafe, sync::Mutex, time::Duration};
 use tui::{
@@ -54,7 +52,7 @@ fn main() {
         Ok(ret) => {
             if let Ok(positions) = ret {
                 for (i, ((a1, a2), hor)) in positions.iter().enumerate() {
-                    let x_pos = SQUARE_SIZE * i as f64;
+                    let x_pos = Board::SQUARE_SIZE * i as f64;
                     println!("(jnp.array([{a1}, {a2}, {hor}]), jnp.array([{x_pos}, 0.0, 0.0])),");
                 }
             } else {
