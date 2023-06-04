@@ -126,22 +126,26 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
     fn check_queue(&mut self) {
         if self.movement_buffer.len() > 0 {
             if self.is_in_position_margin(3) {
+                const BOT_ARM_MAX_SPEED: f32 = 800.0;
+                const TOP_ARM_MAX_SPEED: f32 = 150.0;
+                const SIDEWAYS_MAX_SPEED: f32 = 500.0;
+
                 let (a1, a2, sd) = self.movement_buffer.pop_front().unwrap();
-                let max_dist = (libm::fabsf(self.bottom_arm_stepper.get_angle() - a1))
-                    .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2))
-                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd))+0.0001;
+                let max_time = (libm::fabsf(self.bottom_arm_stepper.get_angle() - a1) / BOT_ARM_MAX_SPEED)
+                    .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2) / TOP_ARM_MAX_SPEED)
+                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED )+0.0001;
                 
+                // let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_time;
+                // let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_time;
+                // let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_time;
+
+                self.bottom_arm_stepper.set_velocity((self.bottom_arm_stepper.get_angle() - a1) / max_time);
+                self.top_arm_stepper.set_velocity((self.top_arm_stepper.get_angle() - a2) / max_time);
+                self.sideways_stepper.set_velocity((self.sideways_stepper.get_angle() - sd) / max_time);
+
                 self.bottom_arm_stepper.goto_angle(a1);
                 self.top_arm_stepper.goto_angle(a2);
                 self.sideways_stepper.goto_angle(sd);
-
-                let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_dist;
-                let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_dist;
-                let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_dist;
-
-                self.bottom_arm_stepper.set_velocity(norma1 * 500.0);
-                self.top_arm_stepper.set_velocity(norma2 * 500.0);
-                self.sideways_stepper.set_velocity(normsd * 500.0);
 
             }
         }

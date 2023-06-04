@@ -1,6 +1,9 @@
+use core::panic;
 use std::{
     f64::consts::PI,
     io::{BufRead, BufReader, Write},
+    ops,
+    time::Duration,
 };
 
 use nalgebra::{Rotation2, Vector2, Vector3};
@@ -13,6 +16,13 @@ pub const SQUARE_SIZE: f64 = 0.05;
 const BOTTOM_ARM_LENGTH: f64 = 0.29;
 const TOP_ARM_LENGTH: f64 = 0.29;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Action {
+    Goto(Vector3<f64>),
+    Grip,
+    Release,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Role {
     Pawn,
@@ -24,16 +34,6 @@ pub enum Role {
     Duck,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct State {
-    pub is_low: bool,
-    pub file: u8,
-    pub rank: u8,
-    pub gripping: bool,
-}
-
-impl State {}
-
 pub struct Arm {
     pub claw_pos: Vector3<f64>,
 
@@ -44,7 +44,6 @@ pub struct Arm {
     /// (0,0,0) is in the middle of the H1 square
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
-    pub state: State,
 }
 
 impl Arm {
@@ -59,12 +58,6 @@ impl Arm {
             translation_offset: Vector3::new(0.0, 0.0, 0.0),
             reader,
             writer,
-            state: State {
-                is_low: true,
-                file: 0,
-                rank: 0,
-                gripping: false,
-            },
         };
 
         arm
@@ -84,17 +77,21 @@ impl Arm {
 
     pub fn move_claw_to(&mut self, position: Vector3<f64>) {
         self.claw_pos = position;
-        let (ba, ta) = Arm::angles(self.claw_pos - self.translation_offset);
-        // eprintln!("{ba} {ta}");
-        let a1 = ba * 180.0 / PI - self.bottom_angle_offset;
-        let a2 = ta * 180.0 / PI - self.top_angle_offset + a1 / 3.0;
-        self.send_command(Command::MoveSideways(
-            (self.claw_pos - self.translation_offset).y as f32,
-        ))
+        let (a1, a2, sd) = self.angles(position);
+        self.send_command(Command::MoveSideways(sd as f32))
         .unwrap();
         self.send_command(Command::MoveBottomArm(a1 as f32))
             .unwrap();
         self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
+    }
+
+    fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
+        let (ba, ta) = Arm::arm_2d_angles(pos - self.translation_offset);
+        // eprintln!("{ba} {ta}");
+        let a1 = ba * 180.0 / PI - self.bottom_angle_offset;
+        let a2 = ta * 180.0 / PI - self.top_angle_offset + a1 / 3.0;
+
+        (a1, a2, (self.claw_pos - self.translation_offset).y)
     }
 
     pub fn send_command(&mut self, command: Command) -> std::io::Result<()> {
@@ -119,13 +116,7 @@ impl Arm {
         Ok(s.trim_end().parse().unwrap())
     }
 
-    pub fn raw_move(&mut self, new_state: State) -> std::io::Result<()> {
-        self.state = new_state;
-        self.send_command(Command::MoveSideways(5.0 * self.state.file as f32))?;
-        Ok(())
-    }
-
-    pub fn angles(position: Vector3<f64>) -> (f64, f64) {
+    pub fn arm_2d_angles(position: Vector3<f64>) -> (f64, f64) {
         let theta = (position.z).atan2(position.x);
         let d = Vector2::new(position.x, position.z).norm();
         let q2 = -((d.powi(2) - BOTTOM_ARM_LENGTH.powi(2) - TOP_ARM_LENGTH.powi(2))
@@ -146,4 +137,60 @@ impl Arm {
         let rot2 = Rotation2::new(-theta2 * PI / 180.0);
         rot1 * (bottom_arm + rot2 * top_arm)
     }
+
+    pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
+        const N_POINTS_CM: f64 = 3.0;
+        let npoints = (self.claw_pos - pos).norm() * 100.0 * N_POINTS_CM;
+        for p in linspace(self.claw_pos, pos, npoints as u32).skip(0) {
+            let (a1, a2, sd) = self.angles(p);
+            dbg!(p);
+            dbg!(a1, a2, sd);
+            self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32)).unwrap();
+        }
+        while self.queue_size() != 0 {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        self.claw_pos  = pos;
+    }
+
+    fn queue_size(&mut self) -> u32 {
+        self.send_command(Command::QueueSize).unwrap();
+        let response = self.get_response().unwrap();
+        if let Response::QueueSize(in_queue, _max) = response {
+            return in_queue;
+        } else {
+            panic!("expected QueueSize, got '{:?}'" , response);
+        }
+    }
+    
+    pub fn do_actions(&mut self, actions: &[Action]) {
+        for action in actions {
+            match action {
+                Action::Goto(v) => {
+                    self.smooth_move_claw_to(*v);
+                }
+                Action::Grip => {
+                    self.send_command(Command::Grip).unwrap();
+                    std::thread::sleep(Duration::from_millis(300));
+                }
+                Action::Release => {
+                    self.send_command(Command::Release).unwrap();
+                    std::thread::sleep(Duration::from_millis(300));
+                }
+            }
+        }
+    }
+}
+
+fn linspace<T>(start: T, end: T, n: u32) -> impl Iterator<Item=T>
+where
+    T: Copy
+        + ops::Sub<Output = T>
+        + ops::Add<Output = T>
+        + ops::Div<f64, Output = T>
+        + ops::Mul<f64, Output = T>,
+{
+    let n = n.max(2);
+    let step_size = (end - start) / (n-1) as f64;
+    (0..=n-1).map(move |i| start + step_size * i as f64)
 }

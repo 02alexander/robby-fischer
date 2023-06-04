@@ -15,9 +15,12 @@ fn main() -> anyhow::Result<()> {
 
     arm.check_calib();
 
-    arm.bottom_angle_offset = 54.01273727416992;
-    arm.top_angle_offset = 34.218055725097656;
-    arm.translation_offset = Vector3::new(-0.14979085326194763, -0.28, 0.009541633538901806);
+
+    arm.bottom_angle_offset = 49.84891891479492;
+    arm.top_angle_offset = 38.3333625793457;
+    arm.translation_offset = Vector3::new(-0.13726842403411865, -0.279990017414093, 0.0026969648897647858);
+
+    arm.move_claw_to(Vector3::new(0.10, 0.0, 0.29));
 
     let stdin = io::stdin().lock();
     let mut height = 0.01;
@@ -40,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         match line.parse::<usize>() {
             Ok(v) => {
                 let pos = Vector3::new(v as f64 * SQUARE_SIZE, 0.0, height);
-                arm.move_claw_to(pos);
+                arm.smooth_move_claw_to(pos);
             }
             Err(e) => {
                 println!("{:?}", e);

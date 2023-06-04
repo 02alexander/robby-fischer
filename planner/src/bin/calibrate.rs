@@ -103,10 +103,10 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
             if let Event::Key(key) = event {
                 match key.code {
                     KeyCode::Char('p') => {
-                        println!("{:?}", Arm::angles(arm.claw_pos));
+                        println!("{:?}", Arm::arm_2d_angles(arm.claw_pos));
                     }
                     KeyCode::Enter => {
-                        positions.push((Arm::angles(arm.claw_pos), arm.claw_pos.y));
+                        positions.push((Arm::arm_2d_angles(arm.claw_pos), arm.claw_pos.y));
                         current_square += 1;
                         if current_square == 8 {
                             break;

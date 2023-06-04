@@ -32,7 +32,8 @@ pub struct TerminalWriter {
 
 impl TerminalDevice {
     pub fn new<P: Into<PathBuf>>(filepath: P) -> anyhow::Result<TerminalDevice> {
-        let oflag = OFlag::O_RDWR | OFlag::O_NOCTTY | OFlag::O_SYNC | OFlag::O_NONBLOCK;
+        // let oflag = OFlag::O_RDWR | OFlag::O_NOCTTY | OFlag::O_SYNC | OFlag::O_NONBLOCK;
+        let oflag = OFlag::O_RDWR | OFlag::O_NOCTTY | OFlag::O_SYNC;
         let fd = open(&filepath.into(), oflag, nix::sys::stat::Mode::empty())?;
         let termios = tcgetattr(fd)?;
         let _drop_handler = Arc::new(TerminalCloser { fd });

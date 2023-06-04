@@ -30,7 +30,7 @@ pub enum Command {
     #[burk(name = "mvb")]
     MoveBottomArm(f32),
     #[burk(name = "q")]
-    Queue(f32, f32, f32), // sideways, top arm, bottom arm, speed.
+    Queue(f32, f32, f32), // sideways, top arm, bottom arm, sideways.
     #[burk(name = "qs")]
     QueueSize,
 }
