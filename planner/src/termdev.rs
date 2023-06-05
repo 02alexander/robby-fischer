@@ -55,8 +55,14 @@ impl TerminalDevice {
         self.termios.input_flags |= InputFlags::IGNCR;
         self.termios.input_flags &= !(InputFlags::INPCK | InputFlags::ISTRIP);
 
-        self.termios.control_chars[SpecialCharacterIndices::VMIN as usize] = 1;
+        self.termios.control_chars[SpecialCharacterIndices::VMIN as usize] = 0;
         self.termios.control_chars[SpecialCharacterIndices::VTIME as usize] = 0;
+        tcsetattr(self.fd, SetArg::TCSAFLUSH, &self.termios)?;
+        Ok(())
+    }
+
+    pub fn set_timeout(&mut self, deci_seconds: u8)  -> anyhow::Result<()> {
+        self.termios.control_chars[SpecialCharacterIndices::VTIME as usize] = deci_seconds;
         tcsetattr(self.fd, SetArg::TCSAFLUSH, &self.termios)?;
         Ok(())
     }

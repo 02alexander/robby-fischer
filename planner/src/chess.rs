@@ -155,6 +155,12 @@ impl Position {
     }
 }
 
+impl Default for Position {
+    fn default() -> Self {
+        Position::from_partial_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+    }
+}
+
 impl Square {
     pub fn new(file: u8, rank: u8) -> Self {
         Square { file, rank }

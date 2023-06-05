@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     arm::Arm,
     chess::{Piece, Position, Role, Square},
@@ -99,12 +101,36 @@ impl Board {
 
         self.position[sq] = None;
     }
+
+    pub fn add_piece(&mut self, arm: &mut Arm, dst: Square, piece: Piece) {
+        // Moves to end and releases the piece
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
+        let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
+        let end = self.pieceholder.pop(piece).unwrap();
+        arm.smooth_move_claw_to(Pieceholder::real_world_coordinate(end) + dz);
+        arm.smooth_move_z(piece.role.grip_height());
+        std::thread::sleep(Duration::from_millis(400));
+        arm.grip();
+
+        // Moves to end and releases the piece
+        arm.smooth_move_z(piece.role.height() + Role::MAX_ROLE_HEIGHT + 0.01);
+        let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
+        arm.smooth_move_claw_to(Self::real_world_coordinate(dst.file as u32, dst.rank as u32) + dz);
+        arm.smooth_move_z(piece.role.grip_height());
+        arm.release();
+
+        // Move claw up so it isn't in the way.
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
+
+        self.position[dst] = Some(piece);
+
+    }
 }
 
 impl Pieceholder {
     const SQUARE_SIZE: f64 = 0.05;
     const MID_MARIGIN: f64 = 0.01;
-    const BOARD_OFFSET: Vector3<f64> = Vector3::new(0.0, 8.0 * Board::SQUARE_SIZE + 0.09, 0.0);
+    const BOARD_OFFSET: Vector3<f64> = Vector3::new(0.0, 8.0 * Board::SQUARE_SIZE + 0.045, 0.0);
 
     pub fn empty() -> Pieceholder {
         Pieceholder {
@@ -112,9 +138,15 @@ impl Pieceholder {
         }
     }
 
+    pub fn full() -> Pieceholder {
+        Pieceholder {
+            occupied: [[true; 8]; 6]
+        }
+    }
+
     pub fn pop(&mut self, piece: Piece) -> Option<(usize, usize)> {
-        for file in (0..self.occupied.len()).rev() {
-            for rank in (0..self.occupied[0].len()).rev() {
+        for file in 0..self.occupied.len() {
+            for rank in 0..self.occupied[0].len() {
                 if self.occupied[file][rank] && HOLDER_POSISIONS[file][rank] == piece {
                     self.occupied[file][rank] = false;
                     return Some((file, rank));

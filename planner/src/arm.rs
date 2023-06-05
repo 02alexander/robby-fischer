@@ -3,7 +3,7 @@ use std::{
     f64::consts::PI,
     io::{BufRead, BufReader, Write},
     ops,
-    time::Duration,
+    time::Duration, fmt::format,
 };
 
 use nalgebra::{Rotation2, Vector2, Vector3};
@@ -54,6 +54,23 @@ impl Arm {
         }
     }
 
+    pub fn sync_pos(&mut self) -> std::io::Result<()> {
+        self.send_command(Command::Position)?;
+        let response = self.get_response()?;
+        if let Response::Position(a1, a2, sd) = response {
+            let a1 = a1 as f64;
+            let a2 = a2 as f64;
+            let sd = sd as f64;
+            let ta = PI/180.0*(a2 - a1/3.0 + self.top_angle_offset);
+            let ba = PI*(a1+self.bottom_angle_offset)/180.0;
+            let cord2d = Arm::position_from_angles(ba, ta);
+            self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]);
+        } else {
+            panic!("invalid responce {}", response);
+        };
+        Ok(())
+    }
+
     pub fn move_claw(&mut self, change: Vector3<f64>) {
         self.move_claw_to(self.claw_pos + change);
     }
@@ -78,8 +95,8 @@ impl Arm {
 
     pub fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let mut buf: Vec<_> = command.to_string().bytes().collect();
+        eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
         buf.push(b'\n');
-        // eprintln!("{}", String::from_utf8_lossy(&buf));
         self.writer.write_all(&buf)?;
         self.writer.flush()?;
         Ok(())
@@ -87,15 +104,24 @@ impl Arm {
 
     pub fn get_response(&mut self) -> std::io::Result<Response> {
         let mut buf = Vec::new();
-        while let Err(e) = self.reader.read_until(b'\n', &mut buf) {
-            if e.kind() != std::io::ErrorKind::WouldBlock {
-                return Err(e);
+        loop {
+            let res = self.reader.read_until(b'\n', &mut buf);
+            match res {
+                Ok(_n) => {
+                    let s = String::from_utf8_lossy(&buf);
+                    eprintln!("recv: '{}'", s.trim_end());
+                    if s.is_empty() {
+                        continue;
+                    }
+                    return Ok(s.trim_end().parse().unwrap())            
+                }
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::WouldBlock {
+                        return Err(e);
+                    }        
+                }
             }
         }
-        let s = String::from_utf8_lossy(&buf);
-        // eprintln!("'{}'", s.trim_end());
-
-        Ok(s.trim_end().parse().unwrap())
     }
 
     pub fn arm_2d_angles(position: Vector3<f64>) -> (f64, f64) {
@@ -163,12 +189,25 @@ impl Arm {
     }
 
     fn queue_size(&mut self) -> u32 {
-        self.send_command(Command::QueueSize).unwrap();
-        let response = self.get_response().unwrap();
-        if let Response::QueueSize(in_queue, _max) = response {
-            in_queue
-        } else {
-            panic!("expected QueueSize, got '{:?}'", response);
+        loop {
+            self.send_command(Command::QueueSize).unwrap();
+            let res = self.get_response();
+            match res {
+                Ok(response) => {
+                    if let Response::QueueSize(in_queue, _max) = response {
+                        return in_queue
+                    } else {
+                        panic!("expected QueueSize, got '{:?}'", response);
+                    }            
+                },
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::WouldBlock {
+                        continue;
+                    } else {
+                        panic!("error when reading queue size: {:?}", e);
+                    }
+                }
+            }
         }
     }
 
@@ -179,7 +218,7 @@ impl Arm {
 
     pub fn release(&mut self) {
         self.send_command(Command::Release).unwrap();
-        std::thread::sleep(Duration::from_millis(400));
+        std::thread::sleep(Duration::from_millis(600));
     }
 }
 

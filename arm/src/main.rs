@@ -100,9 +100,9 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                     println!(
                         "{}",
                         Response::Position(
-                            self.sideways_stepper.get_angle() / SIDEWAYS_DEGREE_PER_M,
                             self.bottom_arm_stepper.get_angle() / BOT_RATIO,
                             self.top_arm_stepper.get_angle() / TOP_RATIO,
+                            self.sideways_stepper.get_angle() / SIDEWAYS_DEGREE_PER_M,
                         )
                         .to_string()
                     );
@@ -238,6 +238,10 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
         arm.run(&timer);
 
         while serial_available() {
+
+            // So it dosn't wait too long between runs.
+            arm.run(&timer);
+
             let ch = char::from(read_byte());
             line_buffer.push(ch);
             if line_buffer.len() >= 4096 {
