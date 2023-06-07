@@ -31,7 +31,7 @@ pub enum Role {
 pub enum Action {
     Move(Square, Square),
     Add(Square, Piece),
-    Remove(Square)
+    Remove(Square),
 }
 
 impl Role {
@@ -138,7 +138,6 @@ impl Piece {
 }
 
 impl Position {
-
     pub fn diff(&self, other: Position) -> Vec<Action> {
         let mut added = Vec::new();
         let mut removed = Vec::new();

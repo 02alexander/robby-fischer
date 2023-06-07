@@ -5,7 +5,7 @@ use nix::sys::termios::BaudRate;
 use planner::{
     arm::Arm,
     board::{Board, Pieceholder},
-    chess::{Position, Square},
+    chess::{Action, Position, Square},
     termdev::TerminalDevice,
 };
 
@@ -43,13 +43,9 @@ fn main() -> anyhow::Result<()> {
             match action {
                 planner::chess::Action::Move(src, dst) => {
                     board.move_piece(&mut arm, src, dst);
-                },
-                planner::chess::Action::Add(sq, piece) => {
-                    board.add_piece(&mut arm, sq, piece)
-                },
-                planner::chess::Action::Remove(sq) => {
-                    board.remove_piece(&mut arm, sq)
-                },
+                }
+                planner::chess::Action::Add(sq, piece) => board.add_piece(&mut arm, sq, piece),
+                planner::chess::Action::Remove(sq) => board.remove_piece(&mut arm, sq),
             }
         }
         board.position = position;

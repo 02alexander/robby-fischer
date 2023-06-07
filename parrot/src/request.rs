@@ -1,4 +1,4 @@
-use std::io::{ErrorKind, Read, Result, Error};
+use std::io::{Error, ErrorKind, Read, Result};
 use std::process::{Child, Command, Stdio};
 
 use serde::de::DeserializeOwned;

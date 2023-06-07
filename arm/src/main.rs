@@ -83,12 +83,12 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                     self.bottom_arm_stepper.set_velocity(600.0);
                     self.bottom_arm_stepper.goto_angle(angle * BOT_RATIO);
                 }
-                Command::Queue(a1, a2, sd ,speed_scale_factor) => {
+                Command::Queue(a1, a2, sd, speed_scale_factor) => {
                     self.movement_buffer.push_back((
                         a1 * BOT_RATIO,
                         a2 * TOP_RATIO,
                         sd * SIDEWAYS_DEGREE_PER_M,
-                        speed_scale_factor
+                        speed_scale_factor,
                     ));
                 }
                 Command::QueueSize => {
@@ -136,22 +136,27 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
 
                 let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
                 let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
-                let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1) / BOT_ARM_MAX_SPEED)
+                let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)
+                    / BOT_ARM_MAX_SPEED)
                     .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2) / TOP_ARM_MAX_SPEED)
-                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED )+0.0001)/speed_scale_factor;
-                
+                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED)
+                    + 0.0001)
+                    / speed_scale_factor;
+
                 // let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_time;
                 // let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_time;
                 // let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_time;
 
-                self.bottom_arm_stepper.set_velocity((self.bottom_arm_stepper.get_angle() - a1) / max_time);
-                self.top_arm_stepper.set_velocity((self.top_arm_stepper.get_angle() - a2) / max_time);
-                self.sideways_stepper.set_velocity((self.sideways_stepper.get_angle() - sd) / max_time);
+                self.bottom_arm_stepper
+                    .set_velocity((self.bottom_arm_stepper.get_angle() - a1) / max_time);
+                self.top_arm_stepper
+                    .set_velocity((self.top_arm_stepper.get_angle() - a2) / max_time);
+                self.sideways_stepper
+                    .set_velocity((self.sideways_stepper.get_angle() - sd) / max_time);
 
                 self.bottom_arm_stepper.goto_angle(a1);
                 self.top_arm_stepper.goto_angle(a2);
                 self.sideways_stepper.goto_angle(sd);
-
             }
         }
     }
@@ -240,7 +245,6 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
         arm.run(&timer);
 
         while serial_available() {
-
             // So it dosn't wait too long between runs.
             arm.run(&timer);
 
