@@ -43,31 +43,41 @@ impl Arm {
 
     pub fn check_calib(&mut self) {
         loop {
+            std::thread::sleep(Duration::from_millis(100));
             self.send_command(Command::IsCalibrated).unwrap();
-            let response = self.get_response().unwrap();
+            let res = self.get_response();
+            if let Err(e) = &res {
+                if e.kind() == std::io::ErrorKind::WouldBlock {
+                    self.send_command(Command::IsCalibrated).unwrap();
+                    continue;
+                }
+            }
+            let response = res.unwrap();
+            dbg!(response);
             if response != Response::IsCalibrated(true) {
                 self.send_command(Command::Calibrate).unwrap();
             } else {
                 break;
             }
-            std::thread::sleep(Duration::from_millis(100));
         }
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
-        self.send_command(Command::Position)?;
-        let response = self.get_response()?;
-        if let Response::Position(a1, a2, sd) = response {
-            let a1 = a1 as f64;
-            let a2 = a2 as f64;
-            let sd = sd as f64;
-            let ta = PI / 180.0 * (a2 - a1 / 3.0 + self.top_angle_offset);
-            let ba = PI * (a1 + self.bottom_angle_offset) / 180.0;
-            let cord2d = Arm::position_from_angles(ba, ta);
-            self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]);
-        } else {
-            panic!("invalid responce {}", response);
-        };
+        loop {
+            self.send_command(Command::Position)?;
+            let response = self.get_response()?;
+            if let Response::Position(a1, a2, sd) = response {
+                let a1 = a1 as f64;
+                let a2 = a2 as f64;
+                let sd = sd as f64;
+                let ta = PI / 180.0 * (a2 - a1 / 3.0 + self.top_angle_offset);
+                let ba = PI * (a1 + self.bottom_angle_offset) / 180.0;
+                let cord2d = Arm::position_from_angles(ba, ta);
+                self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
         Ok(())
     }
 
@@ -108,12 +118,13 @@ impl Arm {
         match res {
             Ok(_n) => {
                 let s = String::from_utf8_lossy(&buf);
-                eprintln!("recv: '{}'", s.trim_end());
-                if s.is_empty() {
+                let trimmed = s.trim_end();
+                eprintln!("recv: {:?}", trimmed.as_bytes());
+                if trimmed.is_empty() {
                     let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
                     return Err(e);
                 }
-                return Ok(s.trim_end().parse().unwrap());
+                return Ok(trimmed.parse().unwrap());
             }
             Err(e) => Err(e),
         }
