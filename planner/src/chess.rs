@@ -156,6 +156,9 @@ impl Position {
         }
 
         removed.extend(added);
+
+        optimize_actions(&mut removed);
+
         removed
     }
 
@@ -206,5 +209,42 @@ impl std::ops::Index<Square> for Position {
 impl std::ops::IndexMut<Square> for Position {
     fn index_mut(&mut self, sqr: Square) -> &mut Self::Output {
         &mut self.board[sqr.file as usize][sqr.rank as usize]
+    }
+}
+
+fn optimize_actions(actions: &mut Vec<Action>) {
+    let squares_of = |a: Action| match a {
+        Action::Move(from, to) => vec![from, to],
+        Action::Add(to, _) => vec![to],
+        Action::Remove(from, _) => vec![from],
+    };
+
+    let mut src_i = 1;
+    while src_i < actions.len() {
+        let mut dst_i = src_i - 1;
+        loop {
+            if dst_i == 0 {
+                actions[..=src_i].rotate_right(1);
+                src_i += 1;
+                break;
+            }
+            let a1 = actions[dst_i];
+            let a2 = actions[src_i];
+            if let (Action::Remove(sq1, p1), Action::Add(sq2, p2)) = (a1, a2) {
+                if p1 == p2 {
+                    actions[dst_i] = Action::Move(sq1, sq2);
+                    actions.remove(src_i);
+                    break;
+                }
+            }
+            let sq1 = squares_of(a1);
+            let sq2 = squares_of(a1);
+            if sq1.iter().any(|s| sq2.contains(s)) {
+                actions[dst_i + 1..=src_i].rotate_right(1);
+                src_i += 1;
+                break;
+            }
+            dst_i -= 1;
+        }
     }
 }
