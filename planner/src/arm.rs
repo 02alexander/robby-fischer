@@ -70,10 +70,10 @@ impl Arm {
                 let a1 = a1 as f64;
                 let a2 = a2 as f64;
                 let sd = sd as f64;
-                let ta = PI / 180.0 * (a2 - a1 / 3.0 + self.top_angle_offset);
-                let ba = PI * (a1 + self.bottom_angle_offset) / 180.0;
+                let ta = a2 - a1 / 3.0 + self.top_angle_offset;
+                let ba = a1 + self.bottom_angle_offset;
                 let cord2d = Arm::position_from_angles(ba, ta);
-                self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]);
+                self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]) + self.translation_offset;
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -105,7 +105,7 @@ impl Arm {
 
     pub fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let mut buf: Vec<_> = command.to_string().bytes().collect();
-        eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
+        // eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
         buf.push(b'\n');
         self.writer.write_all(&buf)?;
         self.writer.flush()?;
@@ -119,12 +119,12 @@ impl Arm {
             Ok(_n) => {
                 let s = String::from_utf8_lossy(&buf);
                 let trimmed = s.trim_end();
-                eprintln!("recv: {:?}", trimmed.as_bytes());
+                // eprintln!("recv: {:?}", trimmed.as_bytes());
                 if trimmed.is_empty() {
                     let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
                     return Err(e);
                 }
-                return Ok(trimmed.parse().unwrap());
+                Ok(trimmed.parse().unwrap())
             }
             Err(e) => Err(e),
         }

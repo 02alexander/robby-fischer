@@ -19,6 +19,7 @@ fn main() -> anyhow::Result<()> {
     arm.top_angle_offset = 38.3333625793457;
     arm.translation_offset = Vector3::new(-0.13726842403411865, -0.0736, 0.0026969648897647858);
 
+    arm.release();
     arm.sync_pos()?;
     println!("{}", arm.claw_pos);
     if arm.claw_pos.z < 0.4 && arm.claw_pos.z > 0.0 && arm.claw_pos.x > 0.0 && arm.claw_pos.x < 0.8
