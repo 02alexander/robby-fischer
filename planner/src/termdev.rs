@@ -61,7 +61,7 @@ impl TerminalDevice {
         Ok(())
     }
 
-    pub fn set_timeout(&mut self, deci_seconds: u8)  -> anyhow::Result<()> {
+    pub fn set_timeout(&mut self, deci_seconds: u8) -> anyhow::Result<()> {
         self.termios.control_chars[SpecialCharacterIndices::VTIME as usize] = deci_seconds;
         tcsetattr(self.fd, SetArg::TCSAFLUSH, &self.termios)?;
         Ok(())

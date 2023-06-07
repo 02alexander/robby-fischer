@@ -73,7 +73,7 @@ impl Board {
         arm.release();
 
         // Move claw up so it isn't in the way.
-        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
 
         self.position[end] = self.position[start];
         self.position[start] = None;
@@ -97,7 +97,7 @@ impl Board {
         arm.release();
 
         // Move claw up so it isn't in the way.
-        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
 
         self.position[sq] = None;
     }
@@ -120,10 +120,9 @@ impl Board {
         arm.release();
 
         // Move claw up so it isn't in the way.
-        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT+0.01);
+        arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
 
         self.position[dst] = Some(piece);
-
     }
 }
 
@@ -140,7 +139,7 @@ impl Pieceholder {
 
     pub fn full() -> Pieceholder {
         Pieceholder {
-            occupied: [[true; 8]; 6]
+            occupied: [[true; 8]; 6],
         }
     }
 
