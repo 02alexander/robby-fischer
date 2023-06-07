@@ -221,13 +221,14 @@ fn optimize_actions(actions: &mut Vec<Action>) {
 
     let mut src_i = 1;
     while src_i < actions.len() {
-        let mut dst_i = src_i - 1;
+        let mut dst_i = src_i;
         loop {
             if dst_i == 0 {
                 actions[..=src_i].rotate_right(1);
                 src_i += 1;
                 break;
             }
+            dst_i -= 1;
             let a1 = actions[dst_i];
             let a2 = actions[src_i];
             if let (Action::Remove(sq1, p1), Action::Add(sq2, p2)) = (a1, a2) {
@@ -238,13 +239,12 @@ fn optimize_actions(actions: &mut Vec<Action>) {
                 }
             }
             let sq1 = squares_of(a1);
-            let sq2 = squares_of(a1);
+            let sq2 = squares_of(a2);
             if sq1.iter().any(|s| sq2.contains(s)) {
                 actions[dst_i + 1..=src_i].rotate_right(1);
                 src_i += 1;
                 break;
             }
-            dst_i -= 1;
         }
     }
 }
