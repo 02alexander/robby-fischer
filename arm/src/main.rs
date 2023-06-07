@@ -44,7 +44,7 @@ struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
 
     servo_channel: Channel<S, M, C>,
 
-    movement_buffer: VecDeque<(f32, f32, f32)>,
+    movement_buffer: VecDeque<(f32, f32, f32, f32)>,
 }
 
 impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
@@ -83,11 +83,12 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                     self.bottom_arm_stepper.set_velocity(600.0);
                     self.bottom_arm_stepper.goto_angle(angle * BOT_RATIO);
                 }
-                Command::Queue(a1, a2, sd) => {
+                Command::Queue(a1, a2, sd ,speed_scale_factor) => {
                     self.movement_buffer.push_back((
                         a1 * BOT_RATIO,
                         a2 * TOP_RATIO,
                         sd * SIDEWAYS_DEGREE_PER_M,
+                        speed_scale_factor
                     ));
                 }
                 Command::QueueSize => {
@@ -129,14 +130,15 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
     fn check_queue(&mut self) {
         if self.movement_buffer.len() > 0 {
             if self.is_in_position_margin(3) {
-                const BOT_ARM_MAX_SPEED: f32 = 1000.0;
-                const TOP_ARM_MAX_SPEED: f32 = 100.0;
-                const SIDEWAYS_MAX_SPEED: f32 = 900.0;
+                const BOT_ARM_MAX_SPEED: f32 = 1600.0;
+                const TOP_ARM_MAX_SPEED: f32 = 200.0;
+                const SIDEWAYS_MAX_SPEED: f32 = 1600.0;
 
-                let (a1, a2, sd) = self.movement_buffer.pop_front().unwrap();
-                let max_time = (libm::fabsf(self.bottom_arm_stepper.get_angle() - a1) / BOT_ARM_MAX_SPEED)
+                let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
+                let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
+                let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1) / BOT_ARM_MAX_SPEED)
                     .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2) / TOP_ARM_MAX_SPEED)
-                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED )+0.0001;
+                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED )+0.0001)/speed_scale_factor;
                 
                 // let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_time;
                 // let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_time;

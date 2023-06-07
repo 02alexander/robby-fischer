@@ -1,9 +1,9 @@
 use core::panic;
 use std::{
     f64::consts::PI,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Error, Write},
     ops,
-    time::Duration, fmt::format,
+    time::Duration,
 };
 
 use nalgebra::{Rotation2, Vector2, Vector3};
@@ -61,8 +61,8 @@ impl Arm {
             let a1 = a1 as f64;
             let a2 = a2 as f64;
             let sd = sd as f64;
-            let ta = PI/180.0*(a2 - a1/3.0 + self.top_angle_offset);
-            let ba = PI*(a1+self.bottom_angle_offset)/180.0;
+            let ta = PI / 180.0 * (a2 - a1 / 3.0 + self.top_angle_offset);
+            let ba = PI * (a1 + self.bottom_angle_offset) / 180.0;
             let cord2d = Arm::position_from_angles(ba, ta);
             self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]);
         } else {
@@ -104,23 +104,18 @@ impl Arm {
 
     pub fn get_response(&mut self) -> std::io::Result<Response> {
         let mut buf = Vec::new();
-        loop {
-            let res = self.reader.read_until(b'\n', &mut buf);
-            match res {
-                Ok(_n) => {
-                    let s = String::from_utf8_lossy(&buf);
-                    eprintln!("recv: '{}'", s.trim_end());
-                    if s.is_empty() {
-                        continue;
-                    }
-                    return Ok(s.trim_end().parse().unwrap())            
+        let res = self.reader.read_until(b'\n', &mut buf);
+        match res {
+            Ok(_n) => {
+                let s = String::from_utf8_lossy(&buf);
+                eprintln!("recv: '{}'", s.trim_end());
+                if s.is_empty() {
+                    let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
+                    return Err(e);
                 }
-                Err(e) => {
-                    if e.kind() != std::io::ErrorKind::WouldBlock {
-                        return Err(e);
-                    }        
-                }
+                return Ok(s.trim_end().parse().unwrap());
             }
+            Err(e) => Err(e),
         }
     }
 
@@ -162,21 +157,27 @@ impl Arm {
     }
 
     pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
-        let pos = Self::practical_real_world_coordinate(pos);
-        const N_POINTS_CM: f64 = 1.0;
-        let npoints = (self.claw_pos - pos).norm() * 100.0 * N_POINTS_CM;
-        for chunk in linspace(self.claw_pos, pos, npoints as u32)
+        let target_pos = Self::practical_real_world_coordinate(pos);
+        const N_POINTS_CM: f64 = 3.0;
+        let npoints = (self.claw_pos - target_pos).norm() * 100.0 * N_POINTS_CM;
+        for chunk in linspace(self.claw_pos, target_pos, npoints as u32)
             .skip(0)
+            .map(|e| (e, Arm::speed_factor(self.claw_pos, e, target_pos)))
             .collect::<Vec<_>>()
             .chunks(20)
         {
-            for &p in chunk {
+            for &(cur_point, scale) in chunk {
                 // dbg!(p);
-                let (a1, a2, sd) = self.angles(p);
+                let (a1, a2, sd) = self.angles(cur_point);
                 // dbg!(a1, a2, sd);
                 // dbg!(self.claw_pos);
-                self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32))
-                    .unwrap();
+                self.send_command(Command::Queue(
+                    a1 as f32,
+                    a2 as f32,
+                    sd as f32,
+                    scale as f32,
+                ))
+                .unwrap();
             }
             while self.queue_size() >= 15 {
                 std::thread::sleep(Duration::from_millis(20));
@@ -185,7 +186,16 @@ impl Arm {
         while self.queue_size() != 0 {
             std::thread::sleep(Duration::from_millis(50));
         }
-        self.claw_pos = pos;
+        self.claw_pos = target_pos;
+    }
+
+    pub fn speed_factor(start: Vector3<f64>, cur: Vector3<f64>, dst: Vector3<f64>) -> f64 {
+        let min_dist = (start - cur).norm().min((cur - dst).norm());
+        if min_dist < 0.05 {
+            min_dist / 0.05 * 0.8 + 0.2
+        } else {
+            1.0
+        }
     }
 
     fn queue_size(&mut self) -> u32 {
@@ -195,11 +205,11 @@ impl Arm {
             match res {
                 Ok(response) => {
                     if let Response::QueueSize(in_queue, _max) = response {
-                        return in_queue
+                        return in_queue;
                     } else {
                         panic!("expected QueueSize, got '{:?}'", response);
-                    }            
-                },
+                    }
+                }
                 Err(e) => {
                     if e.kind() == std::io::ErrorKind::WouldBlock {
                         continue;
@@ -212,11 +222,13 @@ impl Arm {
     }
 
     pub fn grip(&mut self) {
+        std::thread::sleep(Duration::from_millis(400));
         self.send_command(Command::Grip).unwrap();
         std::thread::sleep(Duration::from_millis(400));
     }
 
     pub fn release(&mut self) {
+        std::thread::sleep(Duration::from_millis(400));
         self.send_command(Command::Release).unwrap();
         std::thread::sleep(Duration::from_millis(600));
     }

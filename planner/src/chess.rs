@@ -55,7 +55,7 @@ impl Role {
     pub fn grip_height(&self) -> f64 {
         match *self {
             Role::Pawn => 0.025,
-            Role::Knight => 0.025,
+            Role::Knight => 0.020,
             Role::Bishop => 0.032,
             Role::Rook => 0.025,
             Role::Queen => 0.045,
