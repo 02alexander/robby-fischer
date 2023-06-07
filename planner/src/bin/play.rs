@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
                     board.move_piece(&mut arm, src, dst);
                 }
                 planner::chess::Action::Add(sq, piece) => board.add_piece(&mut arm, sq, piece),
-                planner::chess::Action::Remove(sq) => board.remove_piece(&mut arm, sq),
+                planner::chess::Action::Remove(sq, _piece) => board.remove_piece(&mut arm, sq),
             }
         }
         board.position = position;

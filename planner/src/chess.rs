@@ -31,7 +31,7 @@ pub enum Role {
 pub enum Action {
     Move(Square, Square),
     Add(Square, Piece),
-    Remove(Square),
+    Remove(Square, Piece),
 }
 
 impl Role {
@@ -145,8 +145,8 @@ impl Position {
         for file in 0..8 {
             for rank in 0..8 {
                 if self.board[file][rank] != other.board[file][rank] {
-                    if let Some(_piece) = self.board[file][rank] {
-                        removed.push(Action::Remove(Square::new(file as u8, rank as u8)));
+                    if let Some(piece) = self.board[file][rank] {
+                        removed.push(Action::Remove(Square::new(file as u8, rank as u8), piece));
                     }
                     if let Some(piece) = other.board[file][rank] {
                         added.push(Action::Add(Square::new(file as u8, rank as u8), piece));
