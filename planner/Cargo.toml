@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.71"
 crossterm = "0.26.1"
 nalgebra = "0.32.2"
-nix = {vesrion = "0.26.2", features = ["term"] }
+nix = {version = "0.26.2", features = ["term"] }
 tui = "0.19.0"
 robby-fischer = {path = ".." }
 arrayvec = "0.7.2"
