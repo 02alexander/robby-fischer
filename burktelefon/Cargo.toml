@@ -1,0 +1,21 @@
+[package]
+name = "burktelefon"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+trybuild = { version="1.0.79", features=["diff"] }
+
+[[test]]
+name = "tests"
+path = "tests/progress.rs"
+
+[dependencies]
+quote = "1.0.26"
+syn = {version = "1.0.109", features = ["extra-traits", "full"]}
+
