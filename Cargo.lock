@@ -527,6 +527,7 @@ dependencies = [
  "lazy_static",
  "nalgebra",
  "nix",
+ "parrot",
  "robby-fischer",
  "tui",
 ]
