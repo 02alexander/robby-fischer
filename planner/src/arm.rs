@@ -105,7 +105,7 @@ impl Arm {
 
     pub fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let mut buf: Vec<_> = command.to_string().bytes().collect();
-        // eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
+        eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
         buf.push(b'\n');
         self.writer.write_all(&buf)?;
         self.writer.flush()?;
@@ -119,7 +119,7 @@ impl Arm {
             Ok(_n) => {
                 let s = String::from_utf8_lossy(&buf);
                 let trimmed = s.trim_end();
-                // eprintln!("recv: {:?}", trimmed.as_bytes());
+                eprintln!("recv: {:?}", trimmed.as_bytes());
                 if trimmed.is_empty() {
                     let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
                     return Err(e);

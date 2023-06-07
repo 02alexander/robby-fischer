@@ -1,4 +1,5 @@
 use burktelefon::Burk;
+use std as alloc;
 
 #[derive(Burk)]
 pub enum Command {

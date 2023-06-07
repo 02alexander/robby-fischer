@@ -1,5 +1,6 @@
 #![no_std]
 use burktelefon::Burk;
+extern crate alloc;
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
 pub enum Response {

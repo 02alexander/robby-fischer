@@ -27,6 +27,13 @@ pub enum Role {
     Duck,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum Action {
+    Move(Square, Square),
+    Add(Square, Piece),
+    Remove(Square)
+}
+
 impl Role {
     pub const ALL: [Role; 7] = [
         Role::Pawn,
@@ -55,7 +62,7 @@ impl Role {
     pub fn grip_height(&self) -> f64 {
         match *self {
             Role::Pawn => 0.025,
-            Role::Knight => 0.020,
+            Role::Knight => 0.025,
             Role::Bishop => 0.032,
             Role::Rook => 0.025,
             Role::Queen => 0.045,
@@ -131,8 +138,30 @@ impl Piece {
 }
 
 impl Position {
+
+    pub fn diff(&self, other: Position) -> Vec<Action> {
+        let mut added = Vec::new();
+        let mut removed = Vec::new();
+
+        for file in 0..8 {
+            for rank in 0..8 {
+                if self.board[file][rank] != other.board[file][rank] {
+                    if let Some(_piece) = self.board[file][rank] {
+                        removed.push(Action::Remove(Square::new(file as u8, rank as u8)));
+                    }
+                    if let Some(piece) = other.board[file][rank] {
+                        added.push(Action::Add(Square::new(file as u8, rank as u8), piece));
+                    }
+                }
+            }
+        }
+
+        removed.extend(added);
+        removed
+    }
+
     pub fn from_partial_fen(fen: &str) -> Self {
-        let mut cur_rank = 0;
+        let mut cur_rank = 7;
         let mut cur_file = 0;
         let mut board = [[None; 8]; 8];
         for ch in fen.chars() {
@@ -144,7 +173,7 @@ impl Position {
                     .parse::<u8>()
                     .unwrap();
             } else if ch == '/' {
-                cur_rank += 1;
+                cur_rank -= 1;
             } else {
                 board[cur_file as usize][cur_rank as usize] =
                     Some(Piece::from_fen_char(ch).unwrap());

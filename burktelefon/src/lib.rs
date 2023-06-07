@@ -49,18 +49,18 @@ pub fn derive(input: TokenStream) -> TokenStream {
         for field in fields {
             let ty = &field.ty;
             construct_code.extend(quote! {
-                parts.next().ok_or(())?.parse::<#ty>().map_err(|_| ())?,
+                parts.next().ok_or_else(|| make_error())?.parse::<#ty>().map_err(|_| make_error())?,
             });
         }
         if fields.is_empty() {
             match_code.extend(quote! {
-                #cmd_name => {
+                Some(#cmd_name) => {
                     core::result::Result::Ok(Self::#ident)
                 },
             });
         } else {
             match_code.extend(quote! {
-                #cmd_name => {
+                Some(#cmd_name) => {
                     core::result::Result::Ok(Self::#ident (
                         #construct_code
                     ))
@@ -113,14 +113,14 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let code = quote! {
         impl core::str::FromStr for #enum_name {
-            type Err = ();
+            type Err = alloc::string::String;
             fn from_str(s: &str) -> Result<Self, Self::Err>  {
                 let mut parts = s.split_whitespace();
-                let command_name = parts.next().ok_or(())?;
-                match command_name {
+                let make_error = || alloc::format!("failed to parse: {:?}", s);
+                match parts.next() {
                     #match_code
                     _ => {Err(())},
-                }
+                }.map_err(|_| make_error())
             }
         }
         impl core::fmt::Display for #enum_name {

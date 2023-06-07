@@ -1,3 +1,5 @@
+use std::io::BufRead;
+
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
 use planner::{
@@ -30,25 +32,28 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut board = Board::default();
-    // let target_chess_board = Position::default();
-    // board.pieceholder = Pieceholder::full();
-    // for file in 0..8 {
-    //     for rank in 0..8 {
-    //         board.position.board[file][rank] = None;
-    //     }
-    // }
 
-    // for rank in 0..8 {
-    //     for file in 0..8 {
-    //         if let Some(piece) = target_chess_board.board[file][rank] {
-    //             board.add_piece(&mut arm, Square::new(file as u8, rank as u8), piece);
-    //         }
-    //     }
-    // }
-
-    board.move_piece(&mut arm, Square::new(4, 0), Square::new(4, 2));
-    board.move_piece(&mut arm, Square::new(4, 7), Square::new(4, 4));
-    // board.remove_piece(&mut arm, Square::new(7, 4));
+    let stdin = std::io::stdin().lock();
+    for line in stdin.lines() {
+        let fen = line.unwrap();
+        println!();
+        let position = Position::from_partial_fen(fen.split_ascii_whitespace().next().unwrap());
+        let actions = board.position.diff(position);
+        for action in actions {
+            match action {
+                planner::chess::Action::Move(src, dst) => {
+                    board.move_piece(&mut arm, src, dst);
+                },
+                planner::chess::Action::Add(sq, piece) => {
+                    board.add_piece(&mut arm, sq, piece)
+                },
+                planner::chess::Action::Remove(sq) => {
+                    board.remove_piece(&mut arm, sq)
+                },
+            }
+        }
+        board.position = position;
+    }
 
     Ok(())
 }
