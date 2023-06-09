@@ -205,7 +205,7 @@ pub fn serial_read(handler: impl FnOnce(&[u8]) -> usize) {
     CALLED.store(false, Ordering::Relaxed);
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "thumbv6m"))]
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");

@@ -34,13 +34,18 @@ fn main() -> anyhow::Result<()> {
 
     let mut board = Board::default();
 
-    for fen in watch_game("gWhOAeMK")? {
-        let fen = fen?;
-        
+    let id = parrot::tv_games()?["Bullet"].to_owned();
+    dbg!(&id);
+
+    watch_game(id, |fen| {
+        println!("{fen}");
+
         // println!();
-        // let position = Position::from_partial_fen(fen.split_ascii_whitespace().next().unwrap());
-        // let actions = board.position.diff(position);
-        // println!("{:#?}", actions);
+        let position = Position::from_partial_fen(fen.split_ascii_whitespace().next().unwrap());
+        let actions = board.position.diff(position);
+        for action in actions {
+            println!("{action:?}");
+        }
         // for action in actions {
         //     match action {
         //         planner::chess::Action::Move(src, dst) => {
@@ -50,8 +55,8 @@ fn main() -> anyhow::Result<()> {
         //         planner::chess::Action::Remove(sq, _piece) => board.remove_piece(&mut arm, sq),
         //     }
         // }
-        // board.position = position;
-    }
+        board.position = position;
+    })?;
 
     Ok(())
 }
