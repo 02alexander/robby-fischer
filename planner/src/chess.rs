@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 /// The color of a piece.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Color {
@@ -146,20 +148,16 @@ impl Position {
             for rank in 0..8 {
                 if self.board[file][rank] != other.board[file][rank] {
                     if let Some(piece) = self.board[file][rank] {
-                        removed.push(Action::Remove(Square::new(file as u8, rank as u8), piece));
+                        removed.push((Square::new(file as u8, rank as u8), piece));
                     }
                     if let Some(piece) = other.board[file][rank] {
-                        added.push(Action::Add(Square::new(file as u8, rank as u8), piece));
+                        added.push((Square::new(file as u8, rank as u8), piece));
                     }
                 }
             }
         }
 
-        removed.extend(added);
-
-        optimize_actions(&mut removed);
-
-        removed
+        optimize_actions(added, removed)
     }
 
     pub fn from_partial_fen(fen: &str) -> Self {
@@ -212,39 +210,44 @@ impl std::ops::IndexMut<Square> for Position {
     }
 }
 
-fn optimize_actions(actions: &mut Vec<Action>) {
-    let squares_of = |a: Action| match a {
-        Action::Move(from, to) => vec![from, to],
-        Action::Add(to, _) => vec![to],
-        Action::Remove(from, _) => vec![from],
-    };
+fn optimize_actions(
+    mut added: Vec<(Square, Piece)>,
+    mut removed: Vec<(Square, Piece)>,
+) -> Vec<Action> {
+    let mut unsorted_moves = Vec::new();
+    added.retain(|&(to, piece)| {
+        if let Some(i) = removed.iter().position(|&(_, p)| p == piece) {
+            let (from, _) = removed.remove(i);
+            unsorted_moves.push((from, to, piece));
+            false
+        } else {
+            true
+        }
+    });
 
-    let mut src_i = 1;
-    while src_i < actions.len() {
-        let mut dst_i = src_i;
-        loop {
-            if dst_i == 0 {
-                actions[..=src_i].rotate_right(1);
-                src_i += 1;
-                break;
-            }
-            dst_i -= 1;
-            let a1 = actions[dst_i];
-            let a2 = actions[src_i];
-            if let (Action::Remove(sq1, p1), Action::Add(sq2, p2)) = (a1, a2) {
-                if p1 == p2 {
-                    actions[dst_i] = Action::Move(sq1, sq2);
-                    actions.remove(src_i);
-                    break;
-                }
-            }
-            let sq1 = squares_of(a1);
-            let sq2 = squares_of(a2);
-            if sq1.iter().any(|s| sq2.contains(s)) {
-                actions[dst_i + 1..=src_i].rotate_right(1);
-                src_i += 1;
-                break;
-            }
+    let mut occupied: HashSet<Square> = unsorted_moves.iter().map(|&(from, _, _)| from).collect();
+    let mut moves = Vec::new();
+
+    while !unsorted_moves.is_empty() {
+        if let Some(i) = unsorted_moves
+            .iter()
+            .position(|(_, to, _)| !occupied.contains(to))
+        {
+            let (from, to, _) = unsorted_moves.remove(i);
+            moves.push((from, to));
+            occupied.remove(&from);
+        } else {
+            let (from, to, piece) = unsorted_moves.pop().unwrap();
+            added.push((to, piece));
+            removed.push((from, piece));
+            occupied.remove(&from);
         }
     }
+
+    let mut actions = Vec::new();
+    actions.extend(removed.into_iter().map(|(s, p)| Action::Remove(s, p)));
+    actions.extend(moves.into_iter().map(|(s1, s2)| Action::Move(s1, s2)));
+    actions.extend(added.into_iter().map(|(s, p)| Action::Remove(s, p)));
+
+    actions
 }
