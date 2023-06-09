@@ -247,7 +247,7 @@ fn optimize_actions(
     let mut actions = Vec::new();
     actions.extend(removed.into_iter().map(|(s, p)| Action::Remove(s, p)));
     actions.extend(moves.into_iter().map(|(s1, s2)| Action::Move(s1, s2)));
-    actions.extend(added.into_iter().map(|(s, p)| Action::Remove(s, p)));
+    actions.extend(added.into_iter().map(|(s, p)| Action::Add(s, p)));
 
     actions
 }
