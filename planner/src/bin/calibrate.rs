@@ -67,11 +67,15 @@ fn main() {
 }
 
 fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64), f64)>> {
+    println!("starting...");
     let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
     td.configure(BaudRate::B115200)?;
+    td.set_timeout(1)?;
     let mut arm = Arm::new(td);
 
+    println!("checking calib...");
     arm.check_calib();
+    println!("calib check done!");
     arm.bottom_angle_offset = 0.0;
     arm.top_angle_offset = 0.0;
     arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
@@ -82,6 +86,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
     let mut theta2 = 50.0;
     arm.claw_pos.y = 0.01;
 
+    println!("Getting currenst position...");
     arm.send_command(Command::Position).unwrap();
     let response = arm.get_response().unwrap();
     if let Response::Position(old_hor, old_theta1, old_theta2) = response {
@@ -91,6 +96,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec<((f64, f64)
     } else {
         println!("expected position");
     }
+    println!("Got current position.");
 
     let mut changed = true;
     println!("Move to row {current_square}");

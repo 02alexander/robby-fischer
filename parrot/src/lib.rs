@@ -22,9 +22,10 @@ struct GameEvent {
     fen: String,
 }
 
-#[derive(Deserialize, Debug)]
-struct StalkEvent {
-    d: Option<GameEvent>,
+#[derive(Deserialize)]
+#[serde(tag = "t", content = "d", rename_all = "lowercase")]
+enum StalkEvent {
+    Move { fen: String },
 }
 
 /// Gets the IDs of the current Lichess TV games.
@@ -68,13 +69,13 @@ pub fn stalk_game(id: impl AsRef<str>) -> Result<Receiver<Result<String>>> {
                         match read {
                             Some(Ok(Message::Text(s))) if s!= "0" => {
                                 match serde_json::from_str::<StalkEvent>(&s) {
-                                    Ok(StalkEvent { d: Some(game_event )}) => {
-                                        if send_event.send(Ok(game_event.fen)).is_err() {
+                                    Ok(StalkEvent::Move{ fen }) => {
+                                        if send_event.send(Ok(fen)).is_err() {
                                             return;
                                         }
                                     },
-                                    Ok(_) => {}
                                     Err(e) => {
+                                        eprintln!("{}", &s);
                                         eprintln!("{:?}", e);
                                     }
                                 }

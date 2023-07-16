@@ -11,9 +11,13 @@ fn main() -> anyhow::Result<()> {
 
     arm.check_calib();
 
-    arm.bottom_angle_offset = 49.84891891479492;
-    arm.top_angle_offset = 38.3333625793457;
-    arm.translation_offset = Vector3::new(-0.13726842403411865, -0.0736, 0.0026969648897647858);
+    arm.bottom_angle_offset = 50.834083557128906;
+    arm.top_angle_offset = 38.944175720214844;
+    arm.translation_offset = Vector3::new(
+        -0.13872461020946503,
+        -0.07199998944997787,
+        0.0014274070272222161,
+    );
 
     arm.release();
     arm.sync_pos()?;
@@ -27,8 +31,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut board = Board::default();
 
-    let id = parrot::tv_games()?["Rapid"].to_owned();
-    // let id = "uktvwtZI";
+    // let id = parrot::tv_games()?["Rapid"].to_owned();
+    let id = "uktvwtZI";
     dbg!(&id);
 
     // let recv = watch_game(id)?;

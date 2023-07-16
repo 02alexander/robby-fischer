@@ -30,6 +30,10 @@ const TOP_RATIO: f32 = 66.0 / 21.0; // Stepper angle / arm angle
 const BOT_RATIO: f32 = (34.0 / 8.0) * (54.0 / 10.0); // Stepper angle / arm angle
 const SIDEWAYS_DEGREE_PER_M: f32 = 360.0 / (18.0 * 0.002);
 
+const BOT_ARM_MAX_SPEED: f32 = 1200.0;
+const TOP_ARM_MAX_SPEED: f32 = 120.0;
+const SIDEWAYS_MAX_SPEED: f32 = 1600.0;
+
 struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
     is_calibrated: bool,
 
@@ -130,10 +134,6 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
     fn check_queue(&mut self) {
         if self.movement_buffer.len() > 0 {
             if self.is_in_position_margin(3) {
-                const BOT_ARM_MAX_SPEED: f32 = 1600.0;
-                const TOP_ARM_MAX_SPEED: f32 = 200.0;
-                const SIDEWAYS_MAX_SPEED: f32 = 1600.0;
-
                 let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
                 let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
                 let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)

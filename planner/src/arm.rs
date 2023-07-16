@@ -161,8 +161,8 @@ impl Arm {
     /// Computes the coordinates to move to compensate for inaccuracies when moving on the opposite end of the board.
     pub fn practical_real_world_coordinate(mut pos: Vector3<f64>) -> Vector3<f64> {
         if pos.x >= 0.2 {
-            pos.x += (pos.x - 0.175) / 0.175 * 0.003;
-            pos.z += (pos.x - 0.175) / 0.175 * 0.01;
+            pos.x += (pos.x - 0.175) / 0.175 * 0.001;
+            pos.z += (pos.x - 0.175) / 0.175 * 0.005;
         }
         pos
     }
