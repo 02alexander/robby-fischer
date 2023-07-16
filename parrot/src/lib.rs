@@ -43,7 +43,7 @@ pub fn tv_games() -> Result<HashMap<String, String>> {
 }
 
 pub fn stalk_game(id: impl AsRef<str>) -> Result<Receiver<Result<String>>> {
-    let sri = "9uFl575FsPGH";
+    let sri = "9uFl575FsPGH"; // Magic string, must not be changed.
     let url = format!(
         "wss://socket5.lichess.org/watch/{}/white/v6?sri={}&v=0:8765",
         id.as_ref(),
