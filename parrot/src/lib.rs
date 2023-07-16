@@ -63,34 +63,23 @@ pub fn stalk_game(id: impl AsRef<str>) -> Result<Receiver<Result<String>>> {
             let (mut writer, mut reader) = ws.split();
             let mut interval = interval(Duration::from_millis(3500));
             loop {
-                // dbg!("loop");
                 select! {
                     read = reader.next() => {
-                        // dbg!(&read);
                         match read {
-                            Some(Ok(msg)) => {
-                                match msg {
-                                    Message::Text(s) => {
-                                        if s != "0" {
-                                            dbg!(&s);
-                                            match serde_json::from_str::<StalkEvent>(&s) {
-                                                Ok(stalk_event) => {
-                                                    // dbg!(&stalk_event);
-                                                    if let Some(game_event) = stalk_event.d {
-                                                        if send_event.send(Ok(game_event.fen)).is_err() {
-                                                            return;
-                                                        }
-                                                    }
-                                                },
-                                                Err(e) => {
-                                                    eprintln!("{:?}", e);
-                                                }
-                                            }
+                            Some(Ok(Message::Text(s))) if s!= "0" => {
+                                match serde_json::from_str::<StalkEvent>(&s) {
+                                    Ok(StalkEvent { d: Some(game_event )}) => {
+                                        if send_event.send(Ok(game_event.fen)).is_err() {
+                                            return;
                                         }
                                     },
-                                    _ => {}
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("{:?}", e);
+                                    }
                                 }
                             },
+                            Some(Ok(_)) => {}
                             Some(Err(e)) => {
                                 let _ = send_event.send(Err(e.into()));
                             }

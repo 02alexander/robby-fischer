@@ -1,12 +1,7 @@
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
 use parrot::stalk_game;
-use planner::{
-    arm::Arm,
-    board::Board,
-    chess::Position,
-    termdev::TerminalDevice,
-};
+use planner::{arm::Arm, board::Board, chess::Position, termdev::TerminalDevice};
 
 fn main() -> anyhow::Result<()> {
     let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
@@ -57,7 +52,6 @@ fn main() -> anyhow::Result<()> {
             }
         }
         board.position = position;
-
     }
 
     Ok(())
