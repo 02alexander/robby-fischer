@@ -10,6 +10,7 @@ burktelefon = { path = "burktelefon" }
 members = [
     "arm",
     "burktelefon",
+    "eagle",
     "parrot",
     "planner"
 ]
