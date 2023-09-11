@@ -17,10 +17,7 @@ const TOP_ARM_LENGTH: f64 = 0.29;
 pub struct Arm {
     pub claw_pos: Vector3<f64>,
 
-    pub bottom_angle_offset: f64,
-    pub top_angle_offset: f64,
     pub translation_offset: Vector3<f64>,
-
     /// (0,0,0) is in the middle of the H1 square
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
@@ -33,12 +30,21 @@ impl Arm {
 
         Arm {
             claw_pos: Vector3::new(0.0, 0.0, 0.0),
-            bottom_angle_offset: 0.0,
-            top_angle_offset: 0.0,
             translation_offset: Vector3::new(0.0, 0.0, 0.0),
             reader,
             writer,
         }
+    }
+
+    pub fn calib(&mut self) {
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.smooth_move_claw_to(Vector3::new(0.0, 0.00, 0.1));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.smooth_move_claw_to(Vector3::new(0.0, 0.00, 0.1));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
     }
 
     pub fn check_calib(&mut self) {
@@ -55,10 +61,11 @@ impl Arm {
             let response = res.unwrap();
             dbg!(response);
             if response != Response::IsCalibrated(true) {
-                self.send_command(Command::Calibrate).unwrap();
+                self.send_command(Command::CalibrateSideways).unwrap();
             } else {
                 break;
             }
+            self.send_command(Command::CalibrateArm).unwrap();
         }
     }
 
@@ -70,9 +77,8 @@ impl Arm {
                 let a1 = a1 as f64;
                 let a2 = a2 as f64;
                 let sd = sd as f64;
-                let ta = a2 - a1 / 3.0 + self.top_angle_offset;
-                let ba = a1 + self.bottom_angle_offset;
-                let cord2d = Arm::position_from_angles(ba, ta);
+                println!("position = {} {} {}", a1, a2, sd);
+                let cord2d = Arm::position_from_angles(a1, a2);
                 self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]) + self.translation_offset;
                 break;
             }
@@ -95,10 +101,10 @@ impl Arm {
     }
 
     fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
-        let (ba, ta) = Arm::arm_2d_angles(pos - self.translation_offset);
+        let (a1, a2) = Arm::arm_2d_angles(pos - self.translation_offset);
+        let a1 = a1 * 180.0 / core::f64::consts::PI;
+        let a2 = a2 * 180.0 / core::f64::consts::PI;
         // eprintln!("{ba} {ta}");
-        let a1 = ba * 180.0 / PI - self.bottom_angle_offset;
-        let a2 = ta * 180.0 / PI - self.top_angle_offset + a1 / 3.0;
 
         (a1, a2, (pos - self.translation_offset).y)
     }
@@ -160,15 +166,17 @@ impl Arm {
 
     /// Computes the coordinates to move to compensate for inaccuracies when moving on the opposite end of the board.
     pub fn practical_real_world_coordinate(mut pos: Vector3<f64>) -> Vector3<f64> {
-        if pos.x >= 0.2 {
-            pos.x += (pos.x - 0.175) / 0.175 * 0.001;
-            pos.z += (pos.x - 0.175) / 0.175 * 0.005;
+        let threshold = 0.075;
+        if pos.x >= threshold {
+            pos.x += (pos.x - threshold) / (0.35-threshold) * 0.001;
+            pos.z += (pos.x - threshold) / (0.35-threshold) * 0.015;
         }
         pos
     }
 
     pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
         let target_pos = Self::practical_real_world_coordinate(pos);
+        // let target_pos = pos;
         const N_POINTS_CM: f64 = 3.0;
         let npoints = (self.claw_pos - target_pos).norm() * 100.0 * N_POINTS_CM;
         for chunk in linspace(self.claw_pos, target_pos, npoints as u32)
@@ -180,7 +188,7 @@ impl Arm {
             for &(cur_point, scale) in chunk {
                 // dbg!(p);
                 let (a1, a2, sd) = self.angles(cur_point);
-                // dbg!(a1, a2, sd);
+                dbg!(a1, a2, sd);
                 // dbg!(self.claw_pos);
                 self.send_command(Command::Queue(
                     a1 as f32,

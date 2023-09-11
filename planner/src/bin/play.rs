@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
 use parrot::stalk_game;
 use planner::{arm::Arm, board::Board, chess::Position, termdev::TerminalDevice};
+use robby_fischer::Command;
 
 fn main() -> anyhow::Result<()> {
     let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
@@ -9,33 +12,41 @@ fn main() -> anyhow::Result<()> {
     td.set_timeout(1)?;
     let mut arm = Arm::new(td);
 
+    println!("1");
     arm.check_calib();
+    println!("2");
 
-    arm.bottom_angle_offset = 50.834083557128906;
-    arm.top_angle_offset = 38.944175720214844;
     arm.translation_offset = Vector3::new(
-        -0.13872461020946503,
-        -0.07199998944997787,
-        0.0014274070272222161,
+        -0.128352028627157198, -0.05799125474691391, -0.012553090130407229
     );
-
+    // arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
+    println!("3");
     arm.release();
+    println!("4");
     arm.sync_pos()?;
+    println!("5");
     println!("{}", arm.claw_pos);
-    if arm.claw_pos.z < 0.4 && arm.claw_pos.z > 0.0 && arm.claw_pos.x > 0.0 && arm.claw_pos.x < 0.8
-    {
-        arm.smooth_move_z(0.12);
-    } else {
-        arm.move_claw_to(Vector3::new(0.10, 0.0, 0.29));
-    }
+    // if arm.claw_pos.z < 0.4 && arm.claw_pos.z > 0.0 && arm.claw_pos.x > 0.0 && arm.claw_pos.x < 0.8
+    // {
+    //     arm.smooth_move_z(0.12);
+    // } else {
+    //     arm.smooth_move_claw_to(Vector3::new(0.15, 0.0, 0.29));
+    // }
+
+    // arm.smooth_move_claw_to(Vector3::new(0.0, 0.00, 0.02) );
+    // std::thread::sleep(Duration::from_millis(1500));
+    // arm.smooth_move_claw_to(Vector3::new(0.35, 0.00, 0.02) );
+
+    arm.calib();
 
     let mut board = Board::default();
 
     // let id = parrot::tv_games()?["Rapid"].to_owned();
-    let id = "uktvwtZI";
+    let id = "axOhohIM";
     dbg!(&id);
 
     // let recv = watch_game(id)?;
+    let mut actions_since_calib = 0;
     let recv = stalk_game(id)?;
     while let Ok(result) = recv.recv() {
         let mut fen = result?;
@@ -47,12 +58,17 @@ fn main() -> anyhow::Result<()> {
         let actions = board.position.diff(position);
         for action in actions {
             println!("{action:?}");
+            actions_since_calib += 1;
             match action {
                 planner::chess::Action::Move(src, dst) => {
                     board.move_piece(&mut arm, src, dst);
                 }
                 planner::chess::Action::Add(sq, piece) => board.add_piece(&mut arm, sq, piece),
                 planner::chess::Action::Remove(sq, _piece) => board.remove_piece(&mut arm, sq),
+            }
+            if actions_since_calib > 10 {
+                arm.calib();
+                actions_since_calib = 0;
             }
         }
         board.position = position;

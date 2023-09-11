@@ -15,3 +15,5 @@ usb-device = "0.2.9"
 usbd-serial = "0.1.1"
 burktelefon = { path = "../burktelefon" }
 robby-fischer = {path = ".." }
+mlx90393 = { git = "https://github.com/02alexander/mlx90393-rs" }
+fugit = "0.3.7"

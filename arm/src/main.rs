@@ -13,20 +13,25 @@ use alloc::{
     string::{String, ToString},
 };
 use cortex_m::delay::Delay;
-use embedded_hal::PwmPin;
+use debugless_unwrap::{DebuglessUnwrap, DebuglessUnwrapNone};
+use embedded_hal::{PwmPin, blocking::i2c, blocking::delay::DelayMs};
 use hardware::read_byte;
+use mlx90393::{Magnetometer, I2CInterface, DigitalFilter, OverSamplingRatio, Gain};
 use robby_fischer::{Command, Response};
-use rp_pico::hal::{
+use rp_pico::{hal::{
     gpio::DynPin,
-    pwm::{Channel, ChannelId, SliceId, SliceMode, Slices},
-};
+    pwm::{Channel, ChannelId, SliceId, SliceMode, Slices}, Watchdog, clocks::init_clocks_and_plls, rom_data::reset_to_usb_boot,
+}, pac::Peripherals, pac::CorePeripherals};
 use rp_pico::hal::{pwm, Timer};
 use rp_pico::Pins;
 use stepper::{Direction, StepSize, Stepper};
+use fugit::RateExtU32;
+use rp_pico::hal::{Clock, Sio, I2C};
 
 use crate::hardware::{println, serial_available};
 
-const TOP_RATIO: f32 = 66.0 / 21.0; // Stepper angle / arm angle
+// const TOP_RATIO: f32 = 66.0 / 21.0; // Stepper angle / arm angle
+const TOP_RATIO: f32 = 66.0 / 20.0; // Why does this work better?
 const BOT_RATIO: f32 = (34.0 / 8.0) * (54.0 / 10.0); // Stepper angle / arm angle
 const SIDEWAYS_DEGREE_PER_M: f32 = 360.0 / (18.0 * 0.002);
 
@@ -34,14 +39,55 @@ const BOT_ARM_MAX_SPEED: f32 = 1200.0;
 const TOP_ARM_MAX_SPEED: f32 = 120.0;
 const SIDEWAYS_MAX_SPEED: f32 = 1600.0;
 
-struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
-    is_calibrated: bool,
+struct AngleSensor {
+    pub mlx: Magnetometer,
+    address: u8,
+}
+
+impl AngleSensor {
+    pub fn new<WR, E>(i2c: &mut WR, address: u8) -> Result<Self, mlx90393::Error<E>>
+    where
+        WR: i2c::WriteRead<Error=E> {
+        let mut protocol = I2CInterface {
+            i2c,
+            address
+        };
+        let mut mlx = Magnetometer::default_settings(&mut protocol)?;
+        mlx.set_filter(&mut protocol, DigitalFilter::DF4)?;
+        mlx.set_oversampling_ratio(&mut protocol, OverSamplingRatio::OSR4)?;
+
+        // mlx. 
+        Ok(AngleSensor { 
+            mlx,
+            address 
+        })
+    }
+
+    pub fn get_angle<WR, E>(&mut self, i2c: &mut WR, delay: &mut impl DelayMs<u32>) -> Result<f32, mlx90393::Error<E>>
+    where
+        WR: i2c::WriteRead<Error=E> {
+        let mut protocol = I2CInterface {
+            i2c,
+            address: self.address
+        };
+        let (_t, x, y, _z) = self.mlx.do_measurement(&mut protocol, delay)?;
+        // println!("{} {}", x, y);
+        let angle = libm::atan2f(y as f32, x as f32);
+        Ok(angle * 180. / core::f32::consts::PI)
+    }
+}
+
+
+struct Arm<S: SliceId, M: SliceMode, C: ChannelId, I> {
+    is_sideways_calibrated: bool,
+
+    i2c: I,
+    bottom_angle_sensor: AngleSensor,
+    top_angle_sensor: AngleSensor,
 
     bottom_arm_stepper: Stepper,
-    bottom_arm_button: DynPin,
 
     top_arm_stepper: Stepper,
-    top_arm_button: DynPin,
 
     sideways_stepper: Stepper,
     sideways_button: DynPin,
@@ -51,27 +97,61 @@ struct Arm<S: SliceId, M: SliceMode, C: ChannelId> {
     movement_buffer: VecDeque<(f32, f32, f32, f32)>,
 }
 
-impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
+impl<S: SliceId, M: SliceMode, I> Arm<S, M, pwm::B, I> 
+where
+    I: i2c::WriteRead {
     pub fn calibrate(&mut self, delay: &mut Delay) {
         self.sideways_stepper
             .calibrate(&mut self.sideways_button, 20.0, 500., delay);
 
-        self.top_arm_stepper
-            .calibrate(&mut self.top_arm_button, 20.0, 200., delay);
+        self.is_sideways_calibrated = true;
+    }
 
-        self.bottom_arm_stepper
-            .calibrate(&mut self.bottom_arm_button, 20.0, 1000., delay);
-        self.bottom_arm_stepper.goto_angle(200.);
+    pub fn calibrate_arm(&mut self, delay: &mut Delay) -> Option<()> {
+        // Constant error on bottom sensor, might be because the sensor is
+        // not aligned perfectly with the magnet.
 
-        self.top_arm_stepper
-            .calibrate(&mut self.top_arm_button, 20.0, 200., delay);
-        self.is_calibrated = true;
+        let mut a1 = self.bottom_angle_sensor.get_angle(&mut self.i2c , delay).ok()?;
+        a1 += 90.0;
+        if a1 < 0.0 {
+            a1 += 360.0
+        };
+        let mut a2 = self.top_angle_sensor.get_angle(&mut self.i2c , delay).ok()?;
+        a2 += 2.0;
+        a2 = -a2;
+        a2 -= 90.0;
+        if a2 < 0.0 {
+            a2 += 360.0
+        };
+
+        // println!("{a1} {a2}");
+        self.bottom_arm_stepper.calib_real_angle(a1 * BOT_RATIO);
+        self.top_arm_stepper.calib_real_angle((a2 + a1 / TOP_RATIO) * TOP_RATIO);
+        Some(())
     }
 
     pub fn parse_command(&mut self, delay: &mut Delay, line: &str) {
         if let Ok(command) = Command::from_str(line) {
             match command {
-                Command::Calibrate => {
+                Command::Magnets => {
+                    let mut a1 = self.bottom_angle_sensor.get_angle(&mut self.i2c , delay).debugless_unwrap();
+                    a1 += 90.0;
+                    if a1 < 0.0 {
+                        a1 += 360.0
+                    };
+                    let mut a2 = self.top_angle_sensor.get_angle(&mut self.i2c , delay).debugless_unwrap();
+                    a2 += 2.0;
+                    a2 = -a2;
+                    a2 -= 90.0;
+                    if a2 < 0.0 {
+                        a2 += 360.0
+                    };            
+                    println!("magnets {a1} {a2}");
+                }
+                Command::CalibrateArm => {
+                    self.calibrate_arm(delay);
+                }
+                Command::CalibrateSideways => {
                     self.calibrate(delay);
                 }
                 Command::MoveSideways(angle) => {
@@ -90,7 +170,7 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                 Command::Queue(a1, a2, sd, speed_scale_factor) => {
                     self.movement_buffer.push_back((
                         a1 * BOT_RATIO,
-                        a2 * TOP_RATIO,
+                        (a2 + a1 / TOP_RATIO) * TOP_RATIO,
                         sd * SIDEWAYS_DEGREE_PER_M,
                         speed_scale_factor,
                     ));
@@ -106,20 +186,23 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
                         "{}",
                         Response::Position(
                             self.bottom_arm_stepper.get_angle() / BOT_RATIO,
-                            self.top_arm_stepper.get_angle() / TOP_RATIO,
+                            self.top_arm_stepper.get_angle() / TOP_RATIO - (self.bottom_arm_stepper.get_angle() / BOT_RATIO)/TOP_RATIO,
                             self.sideways_stepper.get_angle() / SIDEWAYS_DEGREE_PER_M,
                         )
                         .to_string()
                     );
                 }
                 Command::IsCalibrated => {
-                    println!("{}", Response::IsCalibrated(self.is_calibrated).to_string());
+                    println!("{}", Response::IsCalibrated(self.is_sideways_calibrated).to_string());
                 }
                 Command::Grip => {
                     self.servo_channel.set_duty(1000 + 300);
                 }
                 Command::Release => {
                     self.servo_channel.set_duty(1000);
+                }
+                Command::RestartToBoot => {
+                    reset_to_usb_boot(0, 0);
                 }
             }
         }
@@ -169,8 +252,61 @@ impl<S: SliceId, M: SliceMode> Arm<S, M, pwm::B> {
     }
 }
 
-fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
-    let mut pwm = pwm_slices.pwm1;
+fn start() -> ! {
+
+    // Hardware setup.
+    let mut pac = Peripherals::take().unwrap();
+    let core = CorePeripherals::take().unwrap();
+
+    let mut watchdog = Watchdog::new(pac.WATCHDOG);
+
+    let clocks = init_clocks_and_plls(
+        rp_pico::XOSC_CRYSTAL_FREQ,
+        pac.XOSC,
+        pac.CLOCKS,
+        pac.PLL_SYS,
+        pac.PLL_USB,
+        &mut pac.RESETS,
+        &mut watchdog,
+    )
+    .ok()
+    .unwrap();
+
+    unsafe {
+        hardware::start_serial(
+            pac.USBCTRL_REGS,
+            pac.USBCTRL_DPRAM,
+            clocks.usb_clock,
+            &mut pac.RESETS,
+        );
+    }
+
+    let mut delay = Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
+
+    let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
+
+    let sio = Sio::new(pac.SIO);
+
+    let pins = Pins::new(
+        pac.IO_BANK0,
+        pac.PADS_BANK0,
+        sio.gpio_bank0,
+        &mut pac.RESETS,
+    );
+
+    let slices = Slices::new(pac.PWM, &mut pac.RESETS);
+
+    
+    let mut i2c = I2C::i2c1(
+        pac.I2C1,
+        pins.gpio26.into_mode(),
+        pins.gpio27.into_mode(),
+        400.kHz(),
+        &mut pac.RESETS,
+        125_000_000.Hz(),
+    );
+
+    let mut pwm = slices.pwm1;
     pwm.set_ph_correct();
     pwm.set_div_int(120); // 120 MHz / 120 = 1000 kHz
     pwm.set_top(20000); // 1000 kHz / 20000 = 50 Hz
@@ -225,21 +361,30 @@ fn start(mut delay: Delay, timer: Timer, pins: Pins, pwm_slices: Slices) -> ! {
     bottom_arm_stepper.set_velocity(360.0);
     top_arm_stepper.set_velocity(50.0);
     sideways_stepper.set_velocity(180.0);
+
     let mut line_buffer = String::with_capacity(4096);
 
+    let mut bottom_angle_sensor = AngleSensor::new(&mut i2c, 0x18).debugless_unwrap();
+    // bottom_angle_sensor.mlx.set_gain(&mut I2CInterface {i2c: &mut i2c, address: 0x18}, Gain::X1).debugless_unwrap();
+    let top_angle_sensor = AngleSensor::new(&mut i2c, 0x19).debugless_unwrap();
+
     let mut arm = Arm {
+        i2c,
         top_arm_stepper,
         sideways_stepper,
         bottom_arm_stepper,
 
-        bottom_arm_button: DynPin::from(pins.gpio17.into_pull_up_input()),
-        sideways_button: DynPin::from(pins.gpio16.into_pull_up_input()),
-        top_arm_button: DynPin::from(pins.gpio18.into_pull_up_input()),
+        bottom_angle_sensor,
+        top_angle_sensor,
 
-        is_calibrated: false,
+        sideways_button: DynPin::from(pins.gpio16.into_pull_up_input()),
+
+        is_sideways_calibrated: false,
         servo_channel: channel,
         movement_buffer: VecDeque::new(),
     };
+
+    println!("{:+?}", arm.calibrate_arm(&mut delay));
 
     loop {
         arm.run(&timer);

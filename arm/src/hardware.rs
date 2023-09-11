@@ -4,16 +4,10 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use cortex_m::delay::Delay;
 use embedded_alloc::Heap;
-use rp_pico::hal::clocks::init_clocks_and_plls;
 use rp_pico::hal::clocks::UsbClock;
-use rp_pico::hal::pwm::Slices;
 use rp_pico::hal::usb::UsbBus;
-use rp_pico::hal::{Clock, Sio, Timer, Watchdog};
 use rp_pico::pac::{interrupt, Interrupt, NVIC, RESETS, USBCTRL_DPRAM, USBCTRL_REGS};
-use rp_pico::pac::{CorePeripherals, Peripherals};
-use rp_pico::Pins;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use usbd_serial::SerialPort;
@@ -45,49 +39,7 @@ fn entry() -> ! {
     // Initialize the heap
     unsafe { HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_MEM.len()) }
 
-    // Hardware setup.
-    let mut pac = Peripherals::take().unwrap();
-    let core = CorePeripherals::take().unwrap();
-
-    let mut watchdog = Watchdog::new(pac.WATCHDOG);
-
-    let clocks = init_clocks_and_plls(
-        rp_pico::XOSC_CRYSTAL_FREQ,
-        pac.XOSC,
-        pac.CLOCKS,
-        pac.PLL_SYS,
-        pac.PLL_USB,
-        &mut pac.RESETS,
-        &mut watchdog,
-    )
-    .ok()
-    .unwrap();
-
-    unsafe {
-        start_serial(
-            pac.USBCTRL_REGS,
-            pac.USBCTRL_DPRAM,
-            clocks.usb_clock,
-            &mut pac.RESETS,
-        );
-    }
-
-    let delay = Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
-
-    let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
-
-    let sio = Sio::new(pac.SIO);
-
-    let pins = Pins::new(
-        pac.IO_BANK0,
-        pac.PADS_BANK0,
-        sio.gpio_bank0,
-        &mut pac.RESETS,
-    );
-
-    let slices = Slices::new(pac.PWM, &mut pac.RESETS);
-
-    super::start(delay, timer, pins, slices);
+    super::start();
 }
 
 /// Starts the serial communication.

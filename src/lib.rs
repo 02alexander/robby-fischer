@@ -14,6 +14,8 @@ pub enum Response {
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
 pub enum Command {
+    #[burk(name = "mag")]
+    Magnets,
     #[burk(name = "pos")]
     Position,
     #[burk(name = "grip")]
@@ -22,8 +24,10 @@ pub enum Command {
     Release,
     #[burk(name = "iscal")]
     IsCalibrated,
-    #[burk(name = "cal")]
-    Calibrate,
+    #[burk(name = "calsid")]
+    CalibrateSideways,
+    #[burk(name = "calarm")]
+    CalibrateArm,
     #[burk(name = "mvs")]
     MoveSideways(f32),
     #[burk(name = "mvt")]
@@ -34,4 +38,7 @@ pub enum Command {
     Queue(f32, f32, f32, f32), // sideways, top arm, bottom arm, sideways. speed scaling.
     #[burk(name = "qs")]
     QueueSize,
+    #[burk(name = "boot")]
+    RestartToBoot,
+
 }

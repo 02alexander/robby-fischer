@@ -1,2 +1,6 @@
 {
+    "files.associations": {
+        "inp2": "plaintext",
+        "ostream": "cpp"
+    }
 }

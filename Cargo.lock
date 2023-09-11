@@ -42,7 +42,9 @@ dependencies = [
  "debugless-unwrap",
  "embedded-alloc",
  "embedded-hal",
+ "fugit",
  "libm",
+ "mlx90393",
  "robby-fischer",
  "rp-pico",
  "usb-device",
@@ -907,6 +909,14 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "mlx90393"
+version = "0.1.0"
+source = "git+https://github.com/02alexander/mlx90393-rs#458127fd36c4ac94b3b8da341ad83ad609aa0ba1"
+dependencies = [
+ "embedded-hal",
 ]
 
 [[package]]
