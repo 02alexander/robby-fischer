@@ -43,7 +43,5 @@ fn main() {
         }
     }
 
-    
-
     ctx.stop_process_thread().unwrap();
 }
