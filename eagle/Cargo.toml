@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 freenectrs = "0.1.0"
 minifb = "0.24.0"
+# opencv = { version="0.84.5", default-features=false, features=["aruco", "aruco_detector", "xobjdetect", "objdetect"]}
+opencv = "0.84.5"
+rerun = "0.7.0"

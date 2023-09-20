@@ -42,5 +42,8 @@ fn main() {
             window.update_with_buffer(&buffer, 640, 480).unwrap();
         }
     }
+
+    
+
     ctx.stop_process_thread().unwrap();
 }
