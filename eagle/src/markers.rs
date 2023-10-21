@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use glam::Vec2;
 use anyhow::Result;
 use opencv::{
     core::{no_array, Point2f, Vector},
@@ -17,7 +18,7 @@ pub struct Detector {
 
 pub struct Marker {
     confidence: u8,
-    points: Vec<(f32, f32)>,
+    points: Vec<Vec2>,
 }
 
 impl Detector {
@@ -41,7 +42,7 @@ impl Detector {
         color_data: &[u8],
         width: usize,
         height: usize,
-    ) -> Vec<(i32, Vec<(f32, f32)>)> {
+    ) -> Option<[Vec2; 4]> {
         let mut corners: Vector<Vector<Point2f>> = Vector::new();
         let mut ids: Vector<i32> = Vector::new();
         let mut rejected = no_array();
@@ -65,7 +66,7 @@ impl Detector {
 
             marker.points = corners
                 .into_iter()
-                .map(|point| (point.x, point.y))
+                .map(|point| Vec2::new(point.x, point.y))
                 .collect();
             marker.confidence = (marker.confidence + 5).min(20);
         }
@@ -74,10 +75,46 @@ impl Detector {
         }
         self.markers.retain(|_, marker| marker.confidence > 0);
 
-        self.markers
+        let markers: Vec<_> = self.markers
             .iter()
             .filter(|(_, marker)| marker.confidence > 10)
             .map(|(&id, marker)| (id, marker.points.clone()))
-            .collect()
+            .collect();
+        
+        Self::order_points(&markers)
     }
+
+     fn order_points(markers: &[(i32, Vec<Vec2>)]) -> Option<[Vec2; 4]> {
+        if markers.len() != 4 {
+            return None;
+        }
+
+        let mid_points: Vec<_> = markers.iter().map(|(_id, pts)| mean(pts)).collect();
+        let mid_point = mean(&mid_points);
+
+
+        let mut top_left = None;
+        let mut top_right = None;
+        let mut bottom_left = None;
+        let mut bottom_right = None;
+
+        for pt in mid_points {
+            match (pt.x > mid_point.x, pt.y > mid_point.y) {
+                (true, true) => top_right = Some(pt),
+                (true, false) => bottom_right = Some(pt),
+                (false, true) => top_left = Some(pt),
+                (false, false) => bottom_left = Some(pt),
+            }
+        }
+
+        Some([top_right?, top_left?, bottom_left?, bottom_right?])
+    }
+}
+
+fn mean(pts: &[Vec2]) -> Vec2 {
+    let sumx: f32 = pts.iter().map(|p| p.x).sum();
+    let sumy: f32 = pts.iter().map(|p| p.y).sum();
+    let meanx = sumx / pts.len() as f32;
+    let meany = sumy / pts.len() as f32;
+    Vec2::new(meanx, meany)
 }
