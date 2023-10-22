@@ -1382,6 +1382,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "freenectrs",
+ "glam 0.24.2",
  "minifb",
  "opencv",
  "rerun",
@@ -2026,6 +2027,12 @@ dependencies = [
  "mint",
  "serde",
 ]
+
+[[package]]
+name = "glam"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5418c17512bdf42730f9032c74e1ae39afc408745ebb2acf72fbc4691c17945"
 
 [[package]]
 name = "glob"
@@ -2674,7 +2681,7 @@ version = "0.18.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8fdbfdf07a7e53090afb7fd427eb0a4b46fc51cb484b2deba27b47919762dfb"
 dependencies = [
- "glam",
+ "glam 0.22.0",
  "num-traits",
  "serde",
 ]
@@ -3234,9 +3241,9 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "opencv"
-version = "0.84.5"
+version = "0.85.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a097f79e4a6ec571f5765c5020f7dbe77d22b9b8dde01c647098fcd2be3895c"
+checksum = "e07271acf89f1dbe3aa1d2f8f905ed5742a5b03117d73b583ba4f4157e77dd91"
 dependencies = [
  "cc",
  "dunce",
@@ -3253,9 +3260,9 @@ dependencies = [
 
 [[package]]
 name = "opencv-binding-generator"
-version = "0.72.0"
+version = "0.75.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e674c5d4d124421a4980fa8533bafd15e07dec30acca5c1b38c055ba234a2cf"
+checksum = "64d0632ad1ed848844a55c0cd622c7cfae4f36dee924eeabdf4119c6a7bd479c"
 dependencies = [
  "clang",
  "clang-sys",
@@ -3899,7 +3906,7 @@ dependencies = [
  "document-features",
  "ecolor",
  "fixed",
- "glam",
+ "glam 0.22.0",
  "half",
  "image",
  "itertools",
@@ -3981,7 +3988,7 @@ dependencies = [
  "document-features",
  "ecolor",
  "enumset",
- "glam",
+ "glam 0.22.0",
  "gltf",
  "half",
  "itertools",
@@ -4130,7 +4137,7 @@ dependencies = [
  "egui_extras",
  "egui_tiles",
  "enumset",
- "glam",
+ "glam 0.22.0",
  "half",
  "image",
  "itertools",
@@ -4187,7 +4194,7 @@ dependencies = [
  "bytemuck",
  "egui",
  "egui-wgpu",
- "glam",
+ "glam 0.22.0",
  "half",
  "itertools",
  "lazy_static",

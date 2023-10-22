@@ -39,14 +39,14 @@ fn main() {
 
     loop {
         if let Ok((data, _)) = vstream.receiver.try_recv() {
-            
             let marks = detector.detect(&data, 640, 480);
 
             let grayscale: ImageBuffer<Rgb<_>, _> =
                 rerun::external::image::ImageBuffer::from_vec(640, 480, data.to_vec()).unwrap();
             let rr_points: Vec<_> = marks
                 .into_iter()
-                .flat_map(|(corners)| corners).map(|pt| Point2D { x: pt.x, y: pt.y })
+                .flat_map(|(corners)| corners)
+                .map(|pt| Point2D { x: pt.x, y: pt.y })
                 .collect();
 
             rerun::MsgSender::new("image/points")

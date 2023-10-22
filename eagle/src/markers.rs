@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use glam::Vec2;
 use anyhow::Result;
+use glam::Vec2;
 use opencv::{
     core::{no_array, Point2f, Vector},
     objdetect::{
@@ -10,7 +10,6 @@ use opencv::{
     },
     prelude::{ArucoDetectorTraitConst, Mat},
 };
-
 pub struct Detector {
     detector: ArucoDetector,
     markers: HashMap<i32, Marker>,
@@ -37,12 +36,7 @@ impl Detector {
         })
     }
 
-    pub fn detect(
-        &mut self,
-        color_data: &[u8],
-        width: usize,
-        height: usize,
-    ) -> Option<[Vec2; 4]> {
+    pub fn detect(&mut self, color_data: &[u8], width: usize, height: usize) -> Option<[Vec2; 4]> {
         let mut corners: Vector<Vector<Point2f>> = Vector::new();
         let mut ids: Vector<i32> = Vector::new();
         let mut rejected = no_array();
@@ -75,23 +69,23 @@ impl Detector {
         }
         self.markers.retain(|_, marker| marker.confidence > 0);
 
-        let markers: Vec<_> = self.markers
+        let markers: Vec<_> = self
+            .markers
             .iter()
             .filter(|(_, marker)| marker.confidence > 10)
             .map(|(&id, marker)| (id, marker.points.clone()))
             .collect();
-        
+
         Self::order_points(&markers)
     }
 
-     fn order_points(markers: &[(i32, Vec<Vec2>)]) -> Option<[Vec2; 4]> {
+    fn order_points(markers: &[(i32, Vec<Vec2>)]) -> Option<[Vec2; 4]> {
         if markers.len() != 4 {
             return None;
         }
 
         let mid_points: Vec<_> = markers.iter().map(|(_id, pts)| mean(pts)).collect();
         let mid_point = mean(&mid_points);
-
 
         let mut top_left = None;
         let mut top_right = None;
