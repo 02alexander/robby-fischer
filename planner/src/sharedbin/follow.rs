@@ -16,7 +16,9 @@ fn main() -> anyhow::Result<()> {
     println!("2");
 
     arm.translation_offset = Vector3::new(
-        -0.128352028627157198, -0.05799125474691391, -0.012553090130407229
+        -0.128352028627157198,
+        -0.05799125474691391,
+        -0.012553090130407229,
     );
     // arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
     println!("3");

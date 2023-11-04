@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use nalgebra::{Rotation2, Vector2, Vector3, Transform};
+use nalgebra::{Rotation2, Transform, Vector2, Vector3};
 use robby_fischer::{Command, Response};
 
 use crate::termdev::TerminalDevice;
@@ -64,7 +64,6 @@ impl Arm {
         std::thread::sleep(Duration::from_millis(100));
         self.send_command(Command::CalibrateArm).unwrap();
         std::thread::sleep(Duration::from_millis(100));
-
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
@@ -96,7 +95,8 @@ impl Arm {
         // self.send_command(Command::MoveBottomArm(a1 as f32))
         //     .unwrap();
         // self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
-        self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0)).unwrap();
+        self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0))
+            .unwrap();
     }
 
     fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
@@ -167,8 +167,8 @@ impl Arm {
     pub fn practical_real_world_coordinate(mut pos: Vector3<f64>) -> Vector3<f64> {
         let threshold = 0.075;
         if pos.x >= threshold {
-            pos.x += (pos.x - threshold) / (0.35-threshold) * 0.001;
-            pos.z += (pos.x - threshold) / (0.35-threshold) * 0.015;
+            pos.x += (pos.x - threshold) / (0.35 - threshold) * 0.001;
+            pos.z += (pos.x - threshold) / (0.35 - threshold) * 0.015;
         }
         pos
     }

@@ -1,9 +1,17 @@
+use eagle::Vision;
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
-use planner::{arm::Arm, termdev::TerminalDevice, board::Board, chess::{Piece, Role, Color, Square}};
+use planner::{
+    arm::Arm,
+    board::Board,
+    chess::{Color, Piece, Role, Square},
+    termdev::TerminalDevice,
+};
 use robby_fischer::Command;
-use std::{sync::mpsc::{Receiver, channel}, time::Duration};
-use eagle::Vision;
+use std::{
+    sync::mpsc::{channel, Receiver},
+    time::Duration,
+};
 
 struct Button {
     recv: Receiver<()>,
@@ -38,12 +46,14 @@ fn main() -> anyhow::Result<()> {
     let mut arm = Arm::new(td);
 
     arm.translation_offset = Vector3::new(
-        -0.128352028627157198, -0.05799125474691391, -0.012553090130407229
+        -0.128352028627157198,
+        -0.05799125474691391,
+        -0.012553090130407229,
     );
 
     arm.calib();
     println!("DONE CALIBRATING");
-    
+
     arm.release();
     arm.sync_pos()?;
 
@@ -66,7 +76,7 @@ fn main() -> anyhow::Result<()> {
         if pieces[0].is_some() {
             // board.add_piece(&mut, dst, piece)
             board.position.board[0][0] = Some(Piece::new(Color::White, Role::Pawn));
-            board.move_piece(&mut arm, Square::new(0,0), Square::new(0,1));
+            board.move_piece(&mut arm, Square::new(0, 0), Square::new(0, 1));
             arm.move_claw_to(Vector3::new(0.2, 0.5, 0.2));
             button.reset();
         } else {

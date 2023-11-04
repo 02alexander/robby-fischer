@@ -40,5 +40,4 @@ pub enum Command {
     QueueSize,
     #[burk(name = "boot")]
     RestartToBoot,
-
 }
