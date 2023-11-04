@@ -1,8 +1,4 @@
-use rerun::{
-    // components::Point2D,
-    default_server_addr,
-    external::image::{ImageBuffer, Rgb},
-};
+use image::{ImageBuffer, Rgb};
 
 fn main() {
     use freenectrs::freenect;
@@ -39,10 +35,10 @@ fn main() {
 
     loop {
         if let Ok((data, _)) = vstream.receiver.try_recv() {
-            let marks = detector.detect(&data, 640, 480);
+            let _marks = detector.detect(&data, 640, 480);
 
-            let grayscale: ImageBuffer<Rgb<_>, _> =
-                rerun::external::image::ImageBuffer::from_vec(640, 480, data.to_vec()).unwrap();
+            let _grayscale: ImageBuffer<Rgb<_>, _> =
+                ImageBuffer::from_vec(640, 480, data.to_vec()).unwrap();
             // let rr_points: Vec<_> = marks
             //     .into_iter()
             //     .flat_map(|(corners)| corners)
