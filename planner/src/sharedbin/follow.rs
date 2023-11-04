@@ -7,13 +7,12 @@ use planner::{arm::Arm, board::Board, chess::Position, termdev::TerminalDevice};
 use robby_fischer::Command;
 
 fn main() -> anyhow::Result<()> {
-    let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
+    let mut td = TerminalDevice::new("/dev/serial/by-id/usb-alebe_herla_robby_fischer_1972-if00")?;
     td.configure(BaudRate::B115200)?;
     td.set_timeout(1)?;
     let mut arm = Arm::new(td);
 
     println!("1");
-    arm.check_calib();
     println!("2");
 
     arm.translation_offset = Vector3::new(

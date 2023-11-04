@@ -3728,6 +3728,7 @@ dependencies = [
  "anyhow",
  "arrayvec",
  "crossterm 0.26.1",
+ "eagle",
  "lazy_static",
  "nalgebra",
  "nix 0.26.2",

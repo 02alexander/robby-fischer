@@ -64,9 +64,9 @@ pub unsafe fn start_serial(
     // Create a USB device (with a fake ID and info)
     USB_DEVICE = Some(
         UsbDeviceBuilder::new(bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Raspberry Pi")
-            .product("Pico")
-            .serial_number("1234")
+            .manufacturer("alebe herla")
+            .product("robby fischer")
+            .serial_number("1972")
             .device_class(2)
             .build(),
     );

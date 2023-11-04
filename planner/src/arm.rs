@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use nalgebra::{Rotation2, Vector2, Vector3};
+use nalgebra::{Rotation2, Vector2, Vector3, Transform};
 use robby_fischer::{Command, Response};
 
 use crate::termdev::TerminalDevice;
@@ -37,17 +37,6 @@ impl Arm {
     }
 
     pub fn calib(&mut self) {
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.smooth_move_claw_to(Vector3::new(0.0, 0.00, 0.1));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.smooth_move_claw_to(Vector3::new(0.0, 0.00, 0.1));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
-    }
-
-    pub fn check_calib(&mut self) {
         loop {
             std::thread::sleep(Duration::from_millis(100));
             self.send_command(Command::IsCalibrated).unwrap();
@@ -67,6 +56,15 @@ impl Arm {
             }
             self.send_command(Command::CalibrateArm).unwrap();
         }
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
@@ -93,11 +91,12 @@ impl Arm {
 
     pub fn move_claw_to(&mut self, position: Vector3<f64>) {
         self.claw_pos = position;
-        let (a1, a2, sd) = self.angles(position);
-        self.send_command(Command::MoveSideways(sd as f32)).unwrap();
-        self.send_command(Command::MoveBottomArm(a1 as f32))
-            .unwrap();
-        self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
+        let (a1, a2, sd) = dbg!(self.angles(position));
+        // self.send_command(Command::MoveSideways(sd as f32)).unwrap();
+        // self.send_command(Command::MoveBottomArm(a1 as f32))
+        //     .unwrap();
+        // self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
+        self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0)).unwrap();
     }
 
     fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
@@ -151,8 +150,8 @@ impl Arm {
 
     /// Calculates the claw position from the angles given in degrees.
     pub fn position_from_angles(theta1: f64, theta2: f64) -> Vector2<f64> {
-        let bottom_arm = Vector2::new(-0.29, 0.0);
-        let top_arm = Vector2::new(-0.29, 0.0);
+        let bottom_arm = Vector2::new(-BOTTOM_ARM_LENGTH, 0.0);
+        let top_arm = Vector2::new(-TOP_ARM_LENGTH, 0.0);
         let rot1 = Rotation2::new(-theta1 * PI / 180.0);
         let rot2 = Rotation2::new(-theta2 * PI / 180.0);
         rot1 * (bottom_arm + rot2 * top_arm)
@@ -175,7 +174,8 @@ impl Arm {
     }
 
     pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
-        let target_pos = Self::practical_real_world_coordinate(pos);
+        // let target_pos = Self::practical_real_world_coordinate(pos);
+        let target_pos = pos;
         // let target_pos = pos;
         const N_POINTS_CM: f64 = 3.0;
         let npoints = (self.claw_pos - target_pos).norm() * 100.0 * N_POINTS_CM;
@@ -188,7 +188,7 @@ impl Arm {
             for &(cur_point, scale) in chunk {
                 // dbg!(p);
                 let (a1, a2, sd) = self.angles(cur_point);
-                dbg!(a1, a2, sd);
+                // dbg!(a1, a2, sd);
                 // dbg!(self.claw_pos);
                 self.send_command(Command::Queue(
                     a1 as f32,

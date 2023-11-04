@@ -350,11 +350,16 @@ impl Vision {
     pub fn pieces(&mut self) -> Option<Vec<Option<bool>>> {
         let (_, data) = self.kinect.receive();
 
-        let marks = self.detector.detect(&data, 640, 480)?;
 
         let color_img: ImageBuffer<Rgb<_>, _> =
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
+        #[cfg(feature = "vis")]
+        REC.lock().unwrap().log("images/image", &rerun::Image::try_from(color_img.clone()).unwrap())
+                .unwrap();
+    
+        let marks = self.detector.detect(&data, 640, 480)?;
+        
         let (threshed_img, clahed_img) = highlight_edges(&color_img);
 
         let coord_converter = CoordConverter::from_markers(marks).unwrap();

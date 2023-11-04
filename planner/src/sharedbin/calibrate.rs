@@ -68,7 +68,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
     let mut arm = Arm::new(td);
 
     println!("checking calib...");
-    arm.check_calib();
+    arm.calib();
     arm.sync_pos()?;
     println!("calib check done!");
     arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
