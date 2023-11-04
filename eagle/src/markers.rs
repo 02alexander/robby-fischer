@@ -94,10 +94,10 @@ impl Detector {
 
         for pt in mid_points {
             match (pt.x > mid_point.x, pt.y > mid_point.y) {
-                (true, true) => top_right = Some(pt),
-                (true, false) => bottom_right = Some(pt),
-                (false, true) => top_left = Some(pt),
-                (false, false) => bottom_left = Some(pt),
+                (true, false) => top_right = Some(pt),
+                (true, true) => bottom_right = Some(pt),
+                (false, false) => top_left = Some(pt),
+                (false, true) => bottom_left = Some(pt),
             }
         }
 

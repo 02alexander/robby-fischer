@@ -1,5 +1,5 @@
 use rerun::{
-    components::Point2D,
+    // components::Point2D,
     default_server_addr,
     external::image::{ImageBuffer, Rgb},
 };
@@ -31,9 +31,9 @@ fn main() {
     ctx.spawn_process_thread().unwrap();
 
     // let rec_stream = rerun::RecordingStreamBuilder::new("my_app").connect(default_server_addr(), default_flush_timeout()).unwrap();
-    let rec_stream = rerun::RecordingStreamBuilder::new("my_app")
-        .connect(default_server_addr())
-        .unwrap();
+    // let rec_stream = rerun::RecordingStreamBuilder::new("my_app")
+    //     .connect(default_server_addr())
+    //     .unwrap();
 
     let mut detector = eagle::Detector::new().unwrap();
 
@@ -43,23 +43,23 @@ fn main() {
 
             let grayscale: ImageBuffer<Rgb<_>, _> =
                 rerun::external::image::ImageBuffer::from_vec(640, 480, data.to_vec()).unwrap();
-            let rr_points: Vec<_> = marks
-                .into_iter()
-                .flat_map(|(corners)| corners)
-                .map(|pt| Point2D { x: pt.x, y: pt.y })
-                .collect();
+            // let rr_points: Vec<_> = marks
+            //     .into_iter()
+            //     .flat_map(|(corners)| corners)
+            //     .map(|pt| Point2D { x: pt.x, y: pt.y })
+            //     .collect();
 
-            rerun::MsgSender::new("image/points")
-                .with_component(&rr_points)
-                .unwrap()
-                .send(&rec_stream)
-                .unwrap();
+            // rerun::MsgSender::new("image/points")
+            //     .with_component(&rr_points)
+            //     .unwrap()
+            //     .send(&rec_stream)
+            //     .unwrap();
 
-            rerun::MsgSender::new("image")
-                .with_component(&[rerun::components::Tensor::from_image(grayscale).unwrap()])
-                .unwrap()
-                .send(&rec_stream)
-                .unwrap();
+            // rerun::MsgSender::new("image")
+            //     .with_component(&[rerun::components::Tensor::from_image(grayscale).unwrap()])
+            //     .unwrap()
+            //     .send(&rec_stream)
+            //     .unwrap();
         }
     }
 

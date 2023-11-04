@@ -11,4 +11,4 @@ freenectrs = "0.1.0"
 glam = "0.24.2"
 minifb = "0.24.0"
 opencv = { version="0.85.3", features=["aruco", "aruco_detector", "xobjdetect", "objdetect", "calib3d"]}
-rerun = "0.7.0"
+rerun = "0.9.1"

@@ -1,164 +1,120 @@
-use std::iter::zip;
-
+use freenectrs::freenect::{
+    FreenectContext, FreenectDepthFormat, FreenectDepthStream, FreenectResolution,
+    FreenectVideoFormat, FreenectVideoStream,
+};
 use glam::{Mat3, Vec2, Vec3};
-use minifb::{Window, WindowOptions};
 use rerun::{
-    components::Point3D,
-    default_server_addr,
-    external::image::{ImageBuffer, Rgb, GrayImage, Pixel},
+    components::Position2D,
+    external::image::{GrayImage, ImageBuffer, Pixel, Rgb, RgbImage},
+    Points2D, Points3D,
 };
 
-use opencv::{prelude::{CLAHETrait, MatTraitConst, DataType}, imgproc::{canny, canny_def, sobel_def, sobel, gaussian_blur_def, median_blur}, core::{BORDER_DEFAULT, convert_scale_abs_def, CV_16S}};
-use opencv::{core as cvvec, calib3d::project_points_def, imgproc::create_clahe};
+use opencv::{
+    calib3d::project_points_def,
+    core as cvvec,
+    core::{convert_scale_abs_def, BORDER_DEFAULT, CV_16S},
+    imgproc::create_clahe,
+    imgproc::{gaussian_blur_def, sobel},
+    prelude::{CLAHETrait, DataType, MatTraitConst},
+};
 
 const KINECT_WIDTH: usize = 640;
 const KINECT_HEIGHT: usize = 480;
 
-fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>> 
-where P: Pixel,
-      P::Subpixel: DataType {
-    let data: Vec<_> = inp_arr.iter().unwrap().map(|(_,v)| v).collect();
+fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>>
+where
+    P: Pixel,
+    P::Subpixel: DataType,
+{
+    let data: Vec<_> = inp_arr.iter().unwrap().map(|(_, v)| v).collect();
     ImageBuffer::from_vec(inp_arr.cols() as u32, inp_arr.rows() as u32, data).unwrap()
 }
 
-fn main() {
-    use freenectrs::freenect;
-    // Init with video functionality
-    let ctx = freenect::FreenectContext::init_with_video().unwrap();
-    // let ctx = freenect::FreenectContext::init_with_video_motor().unwrap(); // If we want to use the motor too
-    // Open first device
+fn highlight_edges(color_img: &RgbImage) -> RgbImage {
+    let mut clahe = create_clahe(4.0, (8, 8).into()).unwrap();
 
-    let rec_stream = rerun::RecordingStreamBuilder::new("my_app")
-        .connect(default_server_addr())
-        .unwrap();
+    let mut sum_img = color_img.clone();
 
-    let device = ctx.open_device(0).unwrap();
-    // Setup mode for this device
-    device
-        .set_depth_mode(
-            freenect::FreenectResolution::Medium,
-            freenect::FreenectDepthFormat::MM,
-        )
-        .unwrap();
-    device
-        .set_video_mode(
-            freenect::FreenectResolution::Medium,
-            freenect::FreenectVideoFormat::Rgb,
-        )
-        .unwrap();
-    // Get rgb and depth stream
-    let dstream = device.depth_stream().unwrap();
-    let vstream = device.video_stream().unwrap();
-    // Start the main-loop-thread
-    ctx.spawn_process_thread().unwrap();
-    // Fetch the video and depth frames
+    for channel in 0..3 {
+        let mut image = GrayImage::new(color_img.width(), color_img.height());
+        for (x, y, pixel) in image.enumerate_pixels_mut() {
+            pixel.0[0] = color_img[(x, y)].0[channel];
+        }
 
-    // let mut window =
-    //     Window::new("a", KINECT_WIDTH, KINECT_HEIGHT, WindowOptions::default()).unwrap();
-    let mut buffer = vec![0; KINECT_WIDTH * KINECT_HEIGHT];
-
-    // let intrinsic_param = array![
-    //     [480., 0., 240.,],
-    //     [0., 480., 240.],
-    //     [0., 0., 1.]
-    // ];
-
-    let color_param = Mat3::from_cols(
-        Vec3::new(521.04658096, 0.0, 0.0),
-        Vec3::new(0., 520.19390147, 0.0),
-        Vec3::new(316.77552846, 258.14152348, 1.),
-    );
-    let color_dist_coeffs = vec![0.24082551, -0.67781624, 0.00130271, 0.00447125, 0.60102011];
-
-    // [[521.04658096   0.         316.77552846]
-    // [  0.         520.19390147 258.14152348]
-    // [  0.           0.           1.        ]]
-    // [[ 0.24082551 -0.67781624  0.00130271  0.00447125  0.60102011]]
-
-    let depth_param = Mat3::from_cols(
-        Vec3::new(440., 0., 0.),
-        Vec3::new(0., 440., 0.),
-        Vec3::new(240., 320., 1.),
-    );
-    let kinv = depth_param.inverse();
-
-    let mut detector = eagle::Detector::new().unwrap();
-
-    loop {
-        let Ok((depth_data, _)) = dstream.receiver.try_recv() else {
-            continue;
-        };
-        // ... handle depth data
-
-        let Ok((data, _)) = vstream.receiver.try_recv() else {
-            continue;
-        };
-
-        let color_img: ImageBuffer<Rgb<_>, _> =
-            rerun::external::image::ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec()).unwrap();
-        let gray_img = rerun::external::image::imageops::colorops::grayscale(&color_img);
-
-        let mut clahe = create_clahe(4.0, (8,8).into()).unwrap();
-
-        let inp_arr = cvvec::Mat::from_slice_rows_cols(&gray_img.to_vec(), KINECT_HEIGHT, KINECT_WIDTH).unwrap(); 
+        let inp_arr =
+            cvvec::Mat::from_slice_rows_cols(&image.to_vec(), KINECT_HEIGHT, KINECT_WIDTH).unwrap();
         let mut clahed_mat = inp_arr.clone();
         clahe.apply(&inp_arr, &mut clahed_mat).unwrap();
 
         let mut blurred_clahed_mat = cvvec::Mat::default();
-        gaussian_blur_def(&clahed_mat, &mut blurred_clahed_mat, (3,3).into(), 4.0).unwrap();
+        gaussian_blur_def(&clahed_mat, &mut blurred_clahed_mat, (3, 3).into(), 4.0).unwrap();
 
         let mut sobel_mat: cvvec::Mat = cvvec::Mat::default();
 
         // sobel_def(&out_arr, &mut edges, 4, , dy)
-        sobel(&blurred_clahed_mat, &mut sobel_mat, CV_16S, 0, 1, 1, 1., 0., BORDER_DEFAULT).unwrap();
+        sobel(
+            &blurred_clahed_mat,
+            &mut sobel_mat,
+            CV_16S,
+            0,
+            1,
+            1,
+            1.,
+            0.,
+            BORDER_DEFAULT,
+        )
+        .unwrap();
         // canny_def(&out_arr, &mut edges, 200.0, 250.0).unwrap();
 
         let mut scaled_sobel = cvvec::Mat::default();
         convert_scale_abs_def(&sobel_mat, &mut scaled_sobel).unwrap();
 
-        // let mut median_blurred_sobel_mat = cvvec::Mat::default();
-        // median_blur(&scaled_sobel, &mut median_blurred_sobel_mat, 3).unwrap();
-
-        let threshold = 20.0;
+        let threshold = [15.0, 15.0, 50.0][channel];
         let threshed_mat = cvvec::Mat::from_slice_rows_cols(
-            &(scaled_sobel.iter().unwrap().map(|(_,t): (_, u8)| if t as f32 > threshold {255} else {0} ).collect::<Vec<u8>>()),
+            &(scaled_sobel
+                .iter()
+                .unwrap()
+                .map(|(_, t): (_, u8)| if t as f32 > threshold { 255 } else { 0 })
+                .collect::<Vec<u8>>()),
             scaled_sobel.rows() as usize,
             scaled_sobel.cols() as usize,
-        ).unwrap();
+        )
+        .unwrap();
         let threshed_img: GrayImage = mat_to_image(&threshed_mat);
-        let edges_img: GrayImage = mat_to_image(&scaled_sobel);
-        let blurred_clahed_img: GrayImage = mat_to_image(&blurred_clahed_mat);
 
-        rerun::MsgSender::new("threshed image")
-            .with_component(&[rerun::components::Tensor::from_image(threshed_img).unwrap()])
-            .unwrap()
-            .send(&rec_stream)
-            .unwrap();
+        for (x, y, pixel) in sum_img.enumerate_pixels_mut() {
+            pixel.0[channel] = threshed_img[(x, y)].0[0];
+        }
+    }
 
-        rerun::MsgSender::new("blurred clahed")
-            .with_component(&[rerun::components::Tensor::from_image(blurred_clahed_img).unwrap()])
-            .unwrap()
-            .send(&rec_stream)
-            .unwrap();
+    sum_img
+}
 
-        rerun::MsgSender::new("edges")
-            .with_component(&[rerun::components::Tensor::from_image(edges_img).unwrap()])
-            .unwrap()
-            .send(&rec_stream)
-            .unwrap();
+struct CoordConverter {
+    camera_matrix: cvvec::Mat,
+    dist_coeffs: cvvec::Vector<f32>,
+    rvec: cvvec::Vector<f32>,
+    tvec: cvvec::Vector<f32>,
+}
 
-        rerun::MsgSender::new("image")
-            .with_component(&[rerun::components::Tensor::from_image(color_img).unwrap()])
-            .unwrap()
-            .send(&rec_stream)
-            .unwrap();
+impl CoordConverter {
+    pub fn from_markers(markers: [Vec2; 4]) -> Option<Self> {
+        let color_param: Mat3 = Mat3::from_cols(
+            Vec3::new(521.04658096, 0.0, 0.0),
+            Vec3::new(0., 520.19390147, 0.0),
+            Vec3::new(316.77552846, 258.14152348, 1.),
+        );
 
-        let Some(marks) = detector.detect(&data, 640, 480) else {
-            continue;
-        };
-        // let p = solve_p(marks[0], marks[1], marks[2], marks[3], Vec2::new(240.0, 240.0), 0.000001, 0.0);
-        // println!("{:?}", p);
-        // let p = solve_p(marks[0], marks[1], marks[2], marks[3], Vec2::new(240.0, 240.0));
+        let camera_matrix: cvvec::Mat = cvvec::Mat::from_slice_2d(&[
+            &color_param.row(0).to_array(),
+            &color_param.row(1).to_array(),
+            &color_param.row(2).to_array(),
+        ])
+        .unwrap();
+
+        let color_dist_coeffs: Vec<f32> =
+            vec![0.24082551, -0.67781624, 0.00130271, 0.00447125, 0.60102011];
+        let dist_coeffs: cvvec::Vector<f32> = color_dist_coeffs.clone().into();
 
         let object_points: cvvec::Vector<cvvec::Point3d> = vec![
             (8.4, 8.4, 0.2).into(),
@@ -168,23 +124,13 @@ fn main() {
         ]
         .into();
 
-        let image_points: cvvec::Vector<cvvec::Point2d> = marks
+        let image_points: cvvec::Vector<cvvec::Point2d> = markers
             .into_iter()
             .map(|p| (p.x as f64, p.y as f64).into())
             .collect();
 
-        let camera_matrix: cvvec::Mat = cvvec::Mat::from_slice_2d(&[
-            &color_param.row(0).to_array(),
-            &color_param.row(1).to_array(),
-            &color_param.row(2).to_array(),
-        ])
-        .unwrap();
-
-        let dist_coeffs: cvvec::Vector<f32> = color_dist_coeffs.clone().into();
-
-        let mut tvec: cvvec::Vector<f32> = cvvec::Vector::new();
         let mut rvec: cvvec::Vector<f32> = cvvec::Vector::new();
-
+        let mut tvec: cvvec::Vector<f32> = cvvec::Vector::new();
         if !opencv::calib3d::solve_pnp_def(
             &object_points,
             &image_points,
@@ -195,28 +141,207 @@ fn main() {
         )
         .unwrap()
         {
-            continue;
+            return None;
         }
 
+        Some(CoordConverter {
+            camera_matrix,
+            dist_coeffs,
+            rvec,
+            tvec,
+        })
+    }
 
-        // for file in 0..8 {
-        //     for rank in 0..8 {
-        //         let x = file as f32+0.5;
-        //         let y = rank as f32+0.5;
-        //         let output = cvvec::Vector::<cvvec::Point2d>::new();
-        //         let object_points: cvvec::Vector<cvvec::Point3d> = vec![
-        //             (8.4, 8.4, 0.2).into(),
-        //             (-0.4, 8.4, 0.2).into(),
-        //             (-0.4, -0.4, 0.2).into(),
-        //             (8.4, -0.4, 0.2).into(),
-        //         ]
-        //         .into();
-        //         project_points_def(, rvec, tvec, camera_matrix, dist_coeffs, image_points)
-        //     }
-        // }
+    pub fn project_points(&self, points: &[Vec3]) -> Vec<Vec2> {
+        let object_points: cvvec::Vector<cvvec::Point3f> = points
+            .iter()
+            .map(|point| (point.x, point.y, point.z).into())
+            .collect();
+        let mut image_points = cvvec::Vector::<cvvec::Point2f>::new();
+        project_points_def(
+            &object_points,
+            &self.rvec,
+            &self.tvec,
+            &self.camera_matrix,
+            &self.dist_coeffs,
+            &mut image_points,
+        )
+        .unwrap();
 
-        println!("{:?}", tvec);
-        println!("{:?}", rvec);
+        image_points
+            .into_iter()
+            .map(|point| (point.x, point.y).into())
+            .collect()
+    }
+}
+
+struct Kinect<'a, 'b> {
+    dstream: FreenectDepthStream<'a, 'b>,
+    vstream: FreenectVideoStream<'a, 'b>,
+}
+
+impl<'a, 'b> Kinect<'a, 'b> {
+    pub fn new(context: &'a FreenectContext) -> Kinect<'a, 'b>
+    where
+        'a: 'b,
+    {
+        let device = context.open_device(0).unwrap();
+        // Setup mode for this device
+        device
+            .set_depth_mode(FreenectResolution::Medium, FreenectDepthFormat::MM)
+            .unwrap();
+        device
+            .set_video_mode(FreenectResolution::Medium, FreenectVideoFormat::Rgb)
+            .unwrap();
+
+        let device = Box::leak(Box::new(device));
+
+        // Get rgb and depth stream
+        let dstream = device.depth_stream().unwrap();
+        let vstream = device.video_stream().unwrap();
+        // Start the main-loop-thread
+
+        Kinect { dstream, vstream }
+    }
+
+    pub fn receive(&mut self) -> (Vec<u16>, Vec<u8>) {
+        (
+            self.dstream.receiver.recv().unwrap().0.to_vec(),
+            self.vstream.receiver.recv().unwrap().0.to_vec(),
+        )
+    }
+}
+
+fn count_in_frustum(
+    point: Vec3,
+    inside_board: bool,
+    coord_converter: &CoordConverter,
+    threshed_img: &RgbImage,
+    mask_img: &mut GrayImage,
+) -> (u32, Vec2) {
+    let bottom_xoffset = 0.1;
+    let bottom_yoffset = 0.2;
+    let top_xoffset = -0.2;
+    let top_yoffset = -0.2;
+    let top_right_xoffset = if inside_board {
+        top_xoffset
+    } else {
+        -top_xoffset - 0.8
+    };
+    let object_points: Vec<Vec3> = vec![
+        point + Vec3::from((-0.5 + bottom_xoffset, -0.5 + bottom_yoffset, 0.0)),
+        point + Vec3::from((-0.5 + bottom_xoffset, 0.5 - bottom_yoffset, 0.0)),
+        point + Vec3::from((0.5 - bottom_xoffset, 0.5 - bottom_yoffset, 0.0)),
+        point + Vec3::from((0.5 - bottom_xoffset, -0.5 + bottom_yoffset, 0.0)),
+        point + Vec3::from((-0.5 + top_xoffset, -0.5 + top_yoffset, 1.6)),
+        point + Vec3::from((-0.5 + top_xoffset, 0.5 - top_yoffset, 1.6)),
+        point + Vec3::from((0.5 - top_right_xoffset, 0.5 - top_yoffset, 1.6)),
+        point + Vec3::from((0.5 - top_right_xoffset, -0.5 + top_yoffset, 1.6)),
+        point + Vec3::from((0.0, 0.0, 0.0)),
+    ]
+    .into();
+
+    let image_points = coord_converter.project_points(&object_points);
+
+    let bounding_box = bounding_box(&image_points);
+
+    let mut cnt = 0;
+
+    for x in bounding_box[0]..bounding_box[1] {
+        for y in bounding_box[2]..bounding_box[3] {
+            if inside_convex_polygon((x as f32, y as f32).into(), &image_points[0..4])
+                && inside_convex_polygon((x as f32, y as f32).into(), &image_points[4..8])
+            {
+                mask_img[(x, y)] = [255].into();
+                for channel in 0..3 {
+                    if threshed_img[(x, y)].0[channel] == 255 {
+                        cnt += 1
+                    }
+                }
+            }
+        }
+    }
+    let mid_point = image_points[8];
+
+    (cnt, mid_point)
+}
+
+fn main() {
+    let depth_param = Mat3::from_cols(
+        Vec3::new(440., 0., 0.),
+        Vec3::new(0., 440., 0.),
+        Vec3::new(240., 320., 1.),
+    );
+    let kinv = depth_param.inverse();
+
+    let ctx = FreenectContext::init_with_video().unwrap();
+    ctx.spawn_process_thread().unwrap();
+    let mut kinect = Kinect::new(&ctx);
+
+    // let rec_stream = rerun::RecordingStreamBuilder::new("my_app")
+    //     .connect(default_server_addr())
+    //     .unwrap();
+    let rec = rerun::RecordingStreamBuilder::new("rerun_example_app")
+        .connect(rerun::default_server_addr(), rerun::default_flush_timeout())
+        .unwrap();
+
+    let mut detector = eagle::Detector::new().unwrap();
+
+    let mut count_avg = vec![0.0; 72];
+    loop {
+        let (depth_data, data) = kinect.receive();
+
+        let color_img: ImageBuffer<Rgb<_>, _> = rerun::external::image::ImageBuffer::from_vec(
+            KINECT_WIDTH as u32,
+            KINECT_HEIGHT as u32,
+            data.to_vec(),
+        )
+        .unwrap();
+        let gray_img = rerun::external::image::imageops::colorops::grayscale(&color_img);
+
+        // let mut median_blurred_sobel_mat = cvvec::Mat::default();
+        // median_blur(&scaled_sobel, &mut median_blurred_sobel_mat, 3).unwrap();
+
+        let threshed_img = highlight_edges(&color_img);
+
+        let Some(marks) = detector.detect(&data, 640, 480) else {
+            continue;
+        };
+
+        let coord_converter = CoordConverter::from_markers(marks).unwrap();
+
+        let mut mask = GrayImage::from_fn(KINECT_HEIGHT as u32, KINECT_HEIGHT as u32, |_, _| {
+            [255].into()
+        });
+        mask.iter_mut().for_each(|p| *p = 0);
+
+        let mut square_mid_points: Vec<Position2D> = Vec::new();
+        for rank in 0..8 {
+            for file in 0..8 {
+                let (count, mid_point) = count_in_frustum(
+                    Vec3::new(file as f32 + 0.5, rank as f32 + 0.5, 0.0 as f32),
+                    true,
+                    &coord_converter,
+                    &threshed_img,
+                    &mut mask,
+                );
+                count_avg[file + rank * 8] = 0.9 * count_avg[file + rank * 8] + 0.1 * count as f32;
+
+                square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+            }
+        }
+        for rank in 0..8 {
+            let fudge_factor = if rank >= 4 { 0.1 } else { -0.1 };
+            let (count, mid_point) = count_in_frustum(
+                Vec3::new(-1.3, rank as f32 + 0.5 + fudge_factor, -0.1),
+                false,
+                &coord_converter,
+                &threshed_img,
+                &mut mask,
+            );
+            count_avg[64 + rank] = 0.9 * count_avg[64 + rank] + 0.1 * count as f32;
+            square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+        }
 
         let mut points = Vec::new();
         for (i, depth) in depth_data.iter().enumerate() {
@@ -230,21 +355,35 @@ fn main() {
             }
         }
 
-        rerun::MsgSender::new("points")
-            .with_component(
-                &points
-                    .iter()
-                    .map(|p| Point3D::new(p.x, p.y, p.z))
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap()
-            .send(&rec_stream)
+        rec.log("images/mask", &rerun::Image::try_from(mask).unwrap())
             .unwrap();
-
-        // window.update_with_buffer(&buffer, 640, 480).unwrap();
+        rec.log(
+            "images/thrseshed image",
+            &rerun::Image::try_from(threshed_img).unwrap(),
+        )
+        .unwrap();
+        rec.log("images/image", &rerun::Image::try_from(color_img).unwrap())
+            .unwrap();
+        rec.log(
+            "images/points",
+            &Points2D::new(square_mid_points)
+                .with_labels(count_avg.iter().map(|cnt| cnt.to_string()))
+                .with_radii(count_avg.iter().map(|&count| if count > 70.0 { 10.0} else {2.0})),
+        )
+        .unwrap();
+        rec.log("images/gray", &rerun::Image::try_from(gray_img).unwrap())
+            .unwrap();
     }
 
     ctx.stop_process_thread().unwrap();
+}
+
+fn bounding_box(polygon: &[Vec2]) -> [u32; 4] {
+    let minx = polygon.iter().map(|p| p.x as u32).min().unwrap();
+    let maxx = polygon.iter().map(|p| p.x as u32).max().unwrap() + 1;
+    let miny = polygon.iter().map(|p| p.y as u32).min().unwrap();
+    let maxy = polygon.iter().map(|p| p.y as u32).max().unwrap() + 1;
+    [minx, maxx, miny, maxy]
 }
 
 fn inside_convex_polygon(pt: Vec2, polygon: &[Vec2]) -> bool {
@@ -263,43 +402,3 @@ fn inside_convex_polygon(pt: Vec2, polygon: &[Vec2]) -> bool {
     }
     true
 }
-
-fn solve_p(a: Vec2, b: Vec2, c: Vec2, d: Vec2, p: Vec2) -> Vec2 {
-    let r = p - c;
-    let s = b - c;
-    let t = d - c;
-    let u = a + c - b - d;
-    let a = s.perp_dot(u);
-    let b = r.perp_dot(u) + s.perp_dot(t);
-    let c = r.perp_dot(t);
-
-    let y1 = (-b + (b * b - 4.0 * a * c).sqrt()) / (2.0 * a);
-    let y2 = (-b - (b * b - 4.0 * a * c).sqrt()) / (2.0 * a);
-    let x1 = (r.x + s.x * y1) / (t.x + u.x * y1);
-    let x2 = (r.x + s.x * y1) / (t.x + u.x * y1);
-
-    dbg!((x1, y1), (x2, y2));
-    // let solutions = Vec::new();
-    Vec2::new(0.0, 0.0)
-}
-
-// fn solve_p(A: Vec2, B: Vec2, C: Vec2, D: Vec2, P: Vec2, alpha: f32, beta: f32) -> Vec2 {
-//     let err = |p: Vec2| {
-//         (P-C-(D-C)*p.x - (D-C)*p.y - (A+C-B-D)*p.x*p.y).length_squared()
-//     };
-//     let grad = |cur: Vec2| {
-//         let fx = (D-C)+(A+C-B-D)*cur.y;
-//         let fy = (B-C)+(A+C-B-D)*cur.x;
-//         let e = (P-C-(D-C)*cur.x - (D-C)*cur.y - (A+C-B-D)*cur.x*cur.y);
-
-//         -2.0*(e.x*fx + (e.y*fy))
-//     };
-
-//     let mut cur_point = Vec2::new(0.5, 0.5);
-//     let mut moment = Vec2::new(0., 0.);
-//     for _i in 0..20 {
-//         moment = moment*beta-alpha*grad(cur_point);
-//         cur_point -= moment;
-//     }
-//     cur_point
-// }

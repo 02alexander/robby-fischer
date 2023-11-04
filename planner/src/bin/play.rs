@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     let mut board = Board::default();
 
     // let id = parrot::tv_games()?["Rapid"].to_owned();
-    let id = "axOhohIM";
+    let id = "myJE5y7K";
     dbg!(&id);
 
     // let recv = watch_game(id)?;
