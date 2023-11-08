@@ -9,8 +9,9 @@ use planner::{
 };
 use robby_fischer::Command;
 use std::{
+    io::empty,
     sync::mpsc::{channel, Receiver},
-    time::Duration, io::empty,
+    time::Duration,
 };
 
 struct Button {
@@ -63,7 +64,6 @@ fn main() -> anyhow::Result<()> {
     board.position[0][6] = Some(Piece::new(Color::Black, Role::Pawn));
     board.position[1][6] = Some(Piece::new(Color::Black, Role::Pawn));
 
-
     let button = Button::new();
     let mut vision = Vision::new();
 
@@ -81,22 +81,14 @@ fn main() -> anyhow::Result<()> {
         let mut empty_board = [[None; 8]; 9];
         for rank in 0..8 {
             for file in 0..8 {
-                if let Some(b) = pieces[file+rank*8] {
-                    empty_board[file][rank] = Some(if b {
-                        Color::White
-                    } else {
-                        Color::Black
-                    });
+                if let Some(b) = pieces[file + rank * 8] {
+                    empty_board[file][rank] = Some(if b { Color::White } else { Color::Black });
                 }
             }
         }
         for rank in 0..8 {
-            if let Some(b) = pieces[64+rank] {
-                empty_board[8][rank] = Some(if b {
-                    Color::White
-                } else {
-                    Color::Black
-                });
+            if let Some(b) = pieces[64 + rank] {
+                empty_board[8][rank] = Some(if b { Color::White } else { Color::Black });
             }
         }
         if board.new_colors(empty_board).is_ok() {

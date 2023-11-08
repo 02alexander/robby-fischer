@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::{
     arm::Arm,
     chess::{Color, Piece, Position, Role, Square},
+    moves::{pawn_moves, knight_moves, bishop_moves, rook_moves, queen_moves, king_moves, PieceMove},
 };
 use lazy_static::lazy_static;
 use nalgebra::Vector3;
@@ -15,7 +16,7 @@ lazy_static! {
         let mut pieces = [[None; 8]; 14];
         for (file, file_chars) in s.iter().enumerate() {
             for (rank, chr) in file_chars.chars().enumerate() {
-                pieces[file+8][rank] = Piece::from_fen_char(chr);
+                pieces[file + 8][rank] = Piece::from_fen_char(chr);
             }
         }
         pieces
@@ -78,6 +79,37 @@ impl Board {
             return Err(());
         }
 
+        added_white.sort();
+        added_black.sort();
+        removed_white.sort();
+        removed_black.sort();
+        for mv in self.all_moves() {
+            let mut valid_aw: Vec<_> = mv.added(Color::White).into_iter()
+                .filter(|(piece, _)| piece.color == Color::White)
+                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+
+            let mut valid_ab: Vec<_> = mv.added(Color::White).into_iter()
+                .filter(|(piece, _)| piece.color == Color::Black)
+                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+
+            let mut valid_rw: Vec<_> = mv.removed(Color::White).into_iter()
+                .filter(|(piece, _)| piece.color == Color::White)
+                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+
+            let mut valid_rb: Vec<_> = mv.removed(Color::White).into_iter()
+                .filter(|(piece, _)| piece.color == Color::Black)
+                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+
+            valid_aw.sort();
+            valid_ab.sort();
+            valid_rw.sort();
+            valid_rb.sort();
+
+            if added_white == valid_aw && added_black == valid_ab && removed_white == valid_rw && removed_black == valid_rb {
+                
+            }
+        }
+
         match (added_white.len(), added_black.len()) {
             (1, 0) => {
                 let (file1, rank1) = removed_white[0];
@@ -109,6 +141,60 @@ impl Board {
             }
             _ => Err(()),
         }
+    }
+
+    pub fn all_moves(&self) -> Vec<PieceMove> {
+        let mut moves = Vec::new();
+        for rank in 0..8 {
+            for file in 0..8 {
+                if let Some(Piece {
+                    color: Color::White,
+                    role,
+                }) = self.position[file][rank]
+                {
+                    let square = Square::new(file as u8, rank as u8);
+                    match role {
+                        Role::Pawn => pawn_moves(&self, square, &mut moves),
+                        Role::Knight => knight_moves(&self, square, &mut moves),
+                        Role::Bishop => bishop_moves(&self, square, &mut moves),
+                        Role::Rook => rook_moves(&self, square, &mut moves),
+                        Role::Queen => queen_moves(&self, square, &mut moves),
+                        Role::King => king_moves(&self, square, &mut moves),
+                        Role::Duck => {}
+                    }
+                }
+            }
+        }
+        moves.retain(|piece_move| {
+            match piece_move {
+                PieceMove::Normal { to, cap,.. } => {
+                    let piece = self.position[to.file as usize][to.rank as usize];
+                    if let Some(Piece { color: Color::White, .. }) = piece {
+                        return false;
+                    }
+
+                    // Incase we capture piece behind a pawn.
+                    if let Some((_, square)) = cap {
+                        if square != to && piece.is_some() {
+                            return false;
+                        }
+                    }
+                    true
+                },
+                PieceMove::Castle { king_src, rook_src, king_dst, rook_dst } => {
+                    if king_dst != king_src && king_dst != rook_src 
+                        && self.position[king_dst.file as usize][king_dst.rank as usize].is_some() {
+                        return false;
+                    }
+                    if rook_dst != king_src && rook_dst != rook_src 
+                        && self.position[rook_dst.file as usize][rook_dst.rank as usize].is_some() {
+                        return false;
+                    }
+                    true
+                },
+            }
+        });
+        moves
     }
 
     pub fn real_world_coordinate(file: u32, rank: u32) -> Vector3<f64> {
@@ -166,7 +252,6 @@ impl std::fmt::Display for Board {
                     write!(f, "{} ", piece.fen_char())?;
                 } else {
                     write!(f, ". ")?;
-
                 }
             }
             write!(f, "\n")?;

@@ -194,6 +194,18 @@ impl Square {
     pub fn new(file: u8, rank: u8) -> Self {
         Square { file, rank }
     }
+    pub fn translate(&self, dx: i8, dy: i8) -> Option<Self> {
+        if (dx + self.file as i8) < 0 || (dy + self.rank as i8) < 0 {
+            return None;
+        }
+        if dx + self.file as i8 >= 8 || dy + self.rank as i8 >= 8 {
+            return None;
+        }
+        Some(Square::new(
+            (dx + self.file as i8) as u8,
+            (dy + self.rank as i8) as u8,
+        ))
+    }
 }
 
 impl std::ops::Index<Square> for Position {
