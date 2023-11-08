@@ -47,33 +47,33 @@ fn main() -> anyhow::Result<()> {
     dbg!(&id);
 
     // let recv = watch_game(id)?;
-    let mut actions_since_calib = 0;
-    let recv = stalk_game(id)?;
-    while let Ok(result) = recv.recv() {
-        let mut fen = result?;
-        while let Ok(result) = recv.try_recv() {
-            fen = result?;
-        }
+    // let mut actions_since_calib = 0;
+    // let recv = stalk_game(id)?;
+    // while let Ok(result) = recv.recv() {
+    //     let mut fen = result?;
+    //     while let Ok(result) = recv.try_recv() {
+    //         fen = result?;
+    //     }
 
-        let position = Position::from_partial_fen(fen.split_ascii_whitespace().next().unwrap());
-        let actions = board.position.diff(position);
-        for action in actions {
-            println!("{action:?}");
-            actions_since_calib += 1;
-            match action {
-                planner::chess::Action::Move(src, dst) => {
-                    board.move_piece(&mut arm, src, dst);
-                }
-                planner::chess::Action::Add(sq, piece) => board.add_piece(&mut arm, sq, piece),
-                planner::chess::Action::Remove(sq, _piece) => board.remove_piece(&mut arm, sq),
-            }
-            if actions_since_calib > 10 {
-                arm.calib();
-                actions_since_calib = 0;
-            }
-        }
-        board.position = position;
-    }
+    //     let position = Position::from_partial_fen(fen.split_ascii_whitespace().next().unwrap());
+    //     let actions = board.position.diff(position);
+    //     for action in actions {
+    //         println!("{action:?}");
+    //         actions_since_calib += 1;
+    //         match action {
+    //             planner::chess::Action::Move(src, dst) => {
+    //                 board.move_piece(&mut arm, src, dst);
+    //             }
+    //             planner::chess::Action::Add(sq, piece) => board.add_piece(&mut arm, sq, piece),
+    //             planner::chess::Action::Remove(sq, _piece) => board.remove_piece(&mut arm, sq),
+    //         }
+    //         if actions_since_calib > 10 {
+    //             arm.calib();
+    //             actions_since_calib = 0;
+    //         }
+    //     }
+    //     board.position = position;
+    // }
 
     Ok(())
 }

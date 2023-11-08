@@ -1,3 +1,5 @@
+
+#[cfg(feature = "vis")]
 use std::sync::Mutex;
 
 use freenectrs::freenect::{
@@ -6,6 +8,7 @@ use freenectrs::freenect::{
 };
 use glam::{Mat3, Vec2, Vec3};
 use image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
+#[cfg(feature = "vis")]
 use once_cell::sync::Lazy;
 use opencv::{
     calib3d::project_points_def,
@@ -148,10 +151,10 @@ impl CoordConverter {
         let dist_coeffs: cvvec::Vector<f32> = color_dist_coeffs.clone().into();
 
         let object_points: cvvec::Vector<cvvec::Point3d> = vec![
-            (8.4, 8.4, 0.2).into(),
-            (-0.4, 8.4, 0.2).into(),
             (-0.4, -0.4, 0.2).into(),
             (8.4, -0.4, 0.2).into(),
+            (8.4, 8.4, 0.2).into(),
+            (-0.4, 8.4, 0.2).into(),
         ]
         .into();
 
@@ -390,6 +393,7 @@ impl Vision {
                 self.count_avg[file + rank * 8] =
                     0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
 
+                let _ = &mid_point;
                 #[cfg(feature = "vis")]
                 square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 
@@ -399,7 +403,7 @@ impl Vision {
         for rank in 0..8 {
             let fudge_factor = if rank >= 4 { 0.1 } else { -0.1 };
             let (count, mid_point, intensities) = count_in_frustum(
-                Vec3::new(-1.3, rank as f32 + 0.5 + fudge_factor, -0.1),
+                Vec3::new(9.3, rank as f32 + 0.5 + fudge_factor, -0.1),
                 false,
                 &coord_converter,
                 &threshed_img,
@@ -408,6 +412,7 @@ impl Vision {
             );
             self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
 
+            let _ = &mid_point;
             #[cfg(feature = "vis")]
             square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 

@@ -12,7 +12,8 @@ members = [
     "burktelefon",
     "eagle",
     "parrot",
-    "planner"
+    "planner",
+    "duckchess",
 ]
 
 [profile.dev]
