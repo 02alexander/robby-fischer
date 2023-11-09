@@ -1,9 +1,9 @@
-use std::time::Duration;
-
 use crate::{
     arm::Arm,
-    chess::{Color, Piece, Position, Role, Square},
-    moves::{pawn_moves, knight_moves, bishop_moves, rook_moves, queen_moves, king_moves, PieceMove},
+    chess::{Color, Piece, Role, Square},
+    moves::{
+        bishop_moves, king_moves, knight_moves, pawn_moves, queen_moves, rook_moves, PieceMove,
+    },
 };
 use lazy_static::lazy_static;
 use nalgebra::Vector3;
@@ -45,29 +45,35 @@ impl Default for Board {
 impl Board {
     pub const SQUARE_SIZE: f64 = 0.05;
 
-    pub fn new_colors(&mut self, new_colors: [[Option<Color>; 8]; 9]) -> Result<(), ()> {
-        let mut added_white = Vec::new();
-        let mut added_black = Vec::new();
-        let mut removed_white = Vec::new();
-        let mut removed_black = Vec::new();
+    pub fn new_colors(&self, new_colors: [[Option<Color>; 8]; 9]) -> Option<(Board, PieceMove)> {
+        let old_colors = self.position.map(|file| {
+            file.map(|square| {
+                square.map(|piece| match piece.role {
+                    Role::Duck => Color::White,
+                    _ => piece.color,
+                })
+            })
+        });
+
+        let mut added_white = 0;
+        let mut added_black = 0;
+        let mut removed_white = 0;
+        let mut removed_black = 0;
 
         for file in 0..9 {
             for rank in 0..8 {
-                let old_color = self.position[file][rank].map(|piece| match piece.role {
-                    Role::Duck => Color::White,
-                    _ => piece.color,
-                });
+                let old_color = old_colors[file][rank];
                 let new_color = new_colors[file][rank];
 
                 if new_color != old_color {
                     match new_color {
-                        Some(Color::White) => added_white.push((file, rank)),
-                        Some(Color::Black) => added_black.push((file, rank)),
+                        Some(Color::White) => added_white += 1,
+                        Some(Color::Black) => added_black += 1,
                         None => {}
                     }
                     match old_color {
-                        Some(Color::White) => removed_white.push((file, rank)),
-                        Some(Color::Black) => removed_black.push((file, rank)),
+                        Some(Color::White) => removed_white += 1,
+                        Some(Color::Black) => removed_black += 1,
                         None => {}
                     }
                 }
@@ -75,72 +81,121 @@ impl Board {
         }
 
         // Piece appeared or was removed
-        if added_white.len() != removed_white.len() || added_black.len() != removed_black.len() {
-            return Err(());
+        if added_white != removed_white || added_black != removed_black {
+            return None;
         }
+        let moved_white = added_white;
+        let moved_black = added_black;
 
-        added_white.sort();
-        added_black.sort();
-        removed_white.sort();
-        removed_black.sort();
         for mv in self.all_moves() {
-            let mut valid_aw: Vec<_> = mv.added(Color::White).into_iter()
-                .filter(|(piece, _)| piece.color == Color::White)
-                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+            let mut position = self.position;
 
-            let mut valid_ab: Vec<_> = mv.added(Color::White).into_iter()
-                .filter(|(piece, _)| piece.color == Color::Black)
-                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+            match mv {
+                PieceMove::Normal {
+                    from,
+                    to,
+                    cap,
+                    promote,
+                } => {
+                    let from = (from.file as usize, from.rank as usize);
+                    let to = (to.file as usize, to.rank as usize);
+                    let cap = cap.map(|sq| (sq.file as usize, sq.rank as usize));
 
-            let mut valid_rw: Vec<_> = mv.removed(Color::White).into_iter()
-                .filter(|(piece, _)| piece.color == Color::White)
-                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+                    if let Some(cap) = cap {
+                        if moved_black != 1 {
+                            continue;
+                        }
+                        let Some(rank) = (0..8).find(|&rank| {
+                            position[8][rank].is_none() && new_colors[8][rank] == Some(Color::Black)
+                        }) else {
+                            continue;
+                        };
+                        let dst = (8, rank);
 
-            let mut valid_rb: Vec<_> = mv.removed(Color::White).into_iter()
-                .filter(|(piece, _)| piece.color == Color::Black)
-                .map(|(_,sq)| (sq.file as usize, sq.rank as usize)).collect();
+                        if old_colors[cap.0][cap.1] != Some(Color::Black)
+                            || new_colors[cap.0][cap.1] == Some(Color::Black)
+                            || new_colors[dst.0][dst.1] != Some(Color::Black)
+                        {
+                            continue;
+                        }
+                        position[dst.0][dst.1] = position[cap.0][cap.1].take();
+                    } else if moved_black != 0 {
+                        continue;
+                    }
 
-            valid_aw.sort();
-            valid_ab.sort();
-            valid_rw.sort();
-            valid_rb.sort();
+                    if new_colors[from.0][from.1].is_some()
+                        || position[to.0][to.1].is_some()
+                        || new_colors[to.0][to.1] != Some(Color::White)
+                    {
+                        continue;
+                    }
+                    position[to.0][to.1] = position[from.0][from.1].take();
 
-            if added_white == valid_aw && added_black == valid_ab && removed_white == valid_rw && removed_black == valid_rb {
-                
+                    if let Some(new_role) = promote {
+                        if moved_white != 2 {
+                            continue;
+                        }
+
+                        let Some(rank) = (0..8).find(|&rank| {
+                            position[8][rank] == Some(Piece::new(Color::White, new_role))
+                        }) else {
+                            continue;
+                        };
+                        let src = (8, rank);
+
+                        let Some(rank) = (0..8).find(|&rank| {
+                            position[8][rank].is_none() && new_colors[8][rank] == Some(Color::White)
+                        }) else {
+                            continue;
+                        };
+                        let dst = (8, rank);
+
+                        position[dst.0][dst.1] = position[to.0][to.1].take();
+                        position[to.0][to.1] = position[src.0][src.1].take();
+                    } else if moved_white != 1 {
+                        continue;
+                    }
+
+                    return Some((Board { position }, mv));
+                }
+                PieceMove::Castle {
+                    king_src,
+                    rook_src,
+                    king_dst,
+                    rook_dst,
+                } => {
+                    let ks = (king_src.file as usize, king_src.rank as usize);
+                    let rs = (rook_src.file as usize, rook_src.rank as usize);
+                    let kd = (king_dst.file as usize, king_dst.rank as usize);
+                    let rd = (rook_dst.file as usize, rook_dst.rank as usize);
+
+                    let mut moved = 0;
+                    if ks != kd && ks != rd {
+                        moved += 1;
+                        if new_colors[ks.0][ks.1].is_some() {
+                            continue;
+                        }
+                    }
+                    if rs != kd && rs != rd {
+                        moved += 1;
+                        if new_colors[rs.0][rs.1].is_some() {
+                            continue;
+                        }
+                    }
+                    if moved_black != 0
+                        || moved_white != moved
+                        || new_colors[kd.0][kd.1] != Some(Color::White)
+                        || new_colors[rd.0][rd.1] != Some(Color::White)
+                    {
+                        continue;
+                    }
+
+                    return Some((Board { position }, mv));
+                }
             }
         }
 
-        match (added_white.len(), added_black.len()) {
-            (1, 0) => {
-                let (file1, rank1) = removed_white[0];
-                let (file2, rank2) = added_white[0];
-
-                if self.position[file2][rank2].is_some() {
-                    return Err(());
-                }
-
-                let piece = self.position[file1][rank1].take();
-                self.position[file2][rank2] = piece;
-                Ok(())
-            }
-            (1, 1) => {
-                let (file1, rank1) = removed_white[0];
-                let (file2, rank2) = added_white[0];
-                let (file3, rank3) = removed_black[0];
-                let (file4, rank4) = added_black[0];
-
-                if file4 != 8 {
-                    return Err(());
-                }
-
-                let piece1 = self.position[file1][rank1].take();
-                let piece2 = self.position[file3][rank3].take();
-                self.position[file2][rank2] = piece1;
-                self.position[file4][rank4] = piece2;
-                Ok(())
-            }
-            _ => Err(()),
-        }
+        None
     }
 
     pub fn all_moves(&self) -> Vec<PieceMove> {
@@ -154,44 +209,38 @@ impl Board {
                 {
                     let square = Square::new(file as u8, rank as u8);
                     match role {
-                        Role::Pawn => pawn_moves(&self, square, &mut moves),
-                        Role::Knight => knight_moves(&self, square, &mut moves),
-                        Role::Bishop => bishop_moves(&self, square, &mut moves),
-                        Role::Rook => rook_moves(&self, square, &mut moves),
-                        Role::Queen => queen_moves(&self, square, &mut moves),
-                        Role::King => king_moves(&self, square, &mut moves),
+                        Role::Pawn => pawn_moves(self, square, &mut moves),
+                        Role::Knight => knight_moves(self, square, &mut moves),
+                        Role::Bishop => bishop_moves(self, square, &mut moves),
+                        Role::Rook => rook_moves(self, square, &mut moves),
+                        Role::Queen => queen_moves(self, square, &mut moves),
+                        Role::King => king_moves(self, square, &mut moves),
                         Role::Duck => {}
                     }
                 }
             }
         }
-        moves.retain(|piece_move| {
-            match piece_move {
-                PieceMove::Normal { to, cap,.. } => {
-                    let piece = self.position[to.file as usize][to.rank as usize];
-                    if let Some(Piece { color: Color::White, .. }) = piece {
-                        return false;
-                    }
-
-                    // Incase we capture piece behind a pawn.
-                    if let Some((_, square)) = cap {
-                        if square != to && piece.is_some() {
-                            return false;
-                        }
-                    }
-                    true
-                },
-                PieceMove::Castle { king_src, rook_src, king_dst, rook_dst } => {
-                    if king_dst != king_src && king_dst != rook_src 
-                        && self.position[king_dst.file as usize][king_dst.rank as usize].is_some() {
-                        return false;
-                    }
-                    if rook_dst != king_src && rook_dst != rook_src 
-                        && self.position[rook_dst.file as usize][rook_dst.rank as usize].is_some() {
-                        return false;
-                    }
-                    true
-                },
+        moves.retain(|piece_move| match piece_move {
+            PieceMove::Normal { .. } => true,
+            PieceMove::Castle {
+                king_src,
+                rook_src,
+                king_dst,
+                rook_dst,
+            } => {
+                if king_dst != king_src
+                    && king_dst != rook_src
+                    && self.position[king_dst.file as usize][king_dst.rank as usize].is_some()
+                {
+                    return false;
+                }
+                if rook_dst != king_src
+                    && rook_dst != rook_src
+                    && self.position[rook_dst.file as usize][rook_dst.rank as usize].is_some()
+                {
+                    return false;
+                }
+                true
             }
         });
         moves
@@ -254,7 +303,7 @@ impl std::fmt::Display for Board {
                     write!(f, ". ")?;
                 }
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }
