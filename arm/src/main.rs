@@ -13,11 +13,11 @@ use alloc::{
     string::{String, ToString},
 };
 use cortex_m::delay::Delay;
-use debugless_unwrap::{DebuglessUnwrap, DebuglessUnwrapNone};
-use embedded_hal::{blocking::delay::DelayMs, blocking::i2c, PwmPin};
+use debugless_unwrap::{DebuglessUnwrap};
+use embedded_hal::{blocking::delay::DelayMs, blocking::i2c, digital::v2::InputPin, PwmPin};
 use fugit::RateExtU32;
 use hardware::read_byte;
-use mlx90393::{DigitalFilter, Gain, I2CInterface, Magnetometer, OverSamplingRatio};
+use mlx90393::{DigitalFilter, I2CInterface, Magnetometer, OverSamplingRatio};
 use robby_fischer::{Command, Response};
 use rp_pico::hal::{pwm, Timer};
 use rp_pico::hal::{Clock, Sio, I2C};
@@ -97,6 +97,9 @@ struct Arm<S: SliceId, M: SliceMode, C: ChannelId, I> {
 
     sideways_stepper: Stepper,
     sideways_button: DynPin,
+    chess_button: DynPin,
+    chess_button_last_state: bool,
+    chess_button_been_pressed: bool,
 
     servo_channel: Channel<S, M, C>,
 
@@ -107,7 +110,7 @@ impl<S: SliceId, M: SliceMode, I> Arm<S, M, pwm::B, I>
 where
     I: i2c::WriteRead,
 {
-    pub fn calibrate(&mut self, delay: &mut Delay) {
+    pub fn calibrate_sideways(&mut self, delay: &mut Delay) {
         self.sideways_stepper
             .calibrate(&mut self.sideways_button, 20.0, 500., delay);
 
@@ -169,7 +172,7 @@ where
                     self.calibrate_arm(delay);
                 }
                 Command::CalibrateSideways => {
-                    self.calibrate(delay);
+                    self.calibrate_sideways(delay);
                 }
                 Command::MoveSideways(angle) => {
                     self.sideways_stepper.set_velocity(800.0);
@@ -225,51 +228,62 @@ where
                 Command::RestartToBoot => {
                     reset_to_usb_boot(0, 0);
                 }
+                Command::ChessButton => {
+                    println!(
+                        "{}",
+                        Response::ChessButtonStatus(self.chess_button_been_pressed)
+                    );
+                    self.chess_button_been_pressed = false;
+                }
             }
         }
     }
 
     fn is_in_position_margin(&mut self, margin: i64) -> bool {
-        return self.top_arm_stepper.is_at_target_margin(margin)
+        self.top_arm_stepper.is_at_target_margin(margin)
             && self.bottom_arm_stepper.is_at_target_margin(margin)
-            && self.sideways_stepper.is_at_target_margin(margin);
+            && self.sideways_stepper.is_at_target_margin(margin)
     }
 
     fn check_queue(&mut self) {
-        if self.movement_buffer.len() > 0 {
-            if self.is_in_position_margin(3) {
-                let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
-                let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
-                let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)
-                    / BOT_ARM_MAX_SPEED)
-                    .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2) / TOP_ARM_MAX_SPEED)
-                    .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED)
-                    + 0.0001)
-                    / speed_scale_factor;
+        if !self.movement_buffer.is_empty() && self.is_in_position_margin(3){
+            let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
+            let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
+            let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)
+                / BOT_ARM_MAX_SPEED)
+                .max(libm::fabsf(self.top_arm_stepper.get_angle() - a2) / TOP_ARM_MAX_SPEED)
+                .max(libm::fabsf(self.sideways_stepper.get_angle() - sd) / SIDEWAYS_MAX_SPEED)
+                + 0.0001)
+                / speed_scale_factor;
 
-                // let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_time;
-                // let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_time;
-                // let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_time;
+            // let norma1 = libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)/max_time;
+            // let norma2 = libm::fabsf(self.top_arm_stepper.get_angle() - a2)/max_time;
+            // let normsd = libm::fabsf(self.sideways_stepper.get_angle() - sd)/max_time;
 
-                self.bottom_arm_stepper
-                    .set_velocity((self.bottom_arm_stepper.get_angle() - a1) / max_time);
-                self.top_arm_stepper
-                    .set_velocity((self.top_arm_stepper.get_angle() - a2) / max_time);
-                self.sideways_stepper
-                    .set_velocity((self.sideways_stepper.get_angle() - sd) / max_time);
+            self.bottom_arm_stepper
+                .set_velocity((self.bottom_arm_stepper.get_angle() - a1) / max_time);
+            self.top_arm_stepper
+                .set_velocity((self.top_arm_stepper.get_angle() - a2) / max_time);
+            self.sideways_stepper
+                .set_velocity((self.sideways_stepper.get_angle() - sd) / max_time);
 
-                self.bottom_arm_stepper.goto_angle(a1);
-                self.top_arm_stepper.goto_angle(a2);
-                self.sideways_stepper.goto_angle(sd);
-            }
+            self.bottom_arm_stepper.goto_angle(a1);
+            self.top_arm_stepper.goto_angle(a2);
+            self.sideways_stepper.goto_angle(sd);
         }
     }
 
     pub fn run(&mut self, timer: &Timer) {
+        let pressed = self.chess_button.is_low().unwrap();
+        if self.chess_button_last_state && pressed {
+            self.chess_button_been_pressed = true;
+        }
+        self.chess_button_last_state = pressed;
+
         self.check_queue();
-        self.sideways_stepper.run(&timer);
-        self.bottom_arm_stepper.run(&timer);
-        self.top_arm_stepper.run(&timer);
+        self.sideways_stepper.run(timer);
+        self.bottom_arm_stepper.run(timer);
+        self.top_arm_stepper.run(timer);
     }
 }
 
@@ -383,7 +397,7 @@ fn start() -> ! {
 
     let mut line_buffer = String::with_capacity(4096);
 
-    let mut bottom_angle_sensor = AngleSensor::new(&mut i2c, 0x18).debugless_unwrap();
+    let bottom_angle_sensor = AngleSensor::new(&mut i2c, 0x18).debugless_unwrap();
     // bottom_angle_sensor.mlx.set_gain(&mut I2CInterface {i2c: &mut i2c, address: 0x18}, Gain::X1).debugless_unwrap();
     let top_angle_sensor = AngleSensor::new(&mut i2c, 0x19).debugless_unwrap();
 
@@ -396,6 +410,9 @@ fn start() -> ! {
         bottom_angle_sensor,
         top_angle_sensor,
 
+        chess_button: DynPin::from(pins.gpio22.into_pull_up_input()),
+        chess_button_been_pressed: false,
+        chess_button_last_state: false,
         sideways_button: DynPin::from(pins.gpio16.into_pull_up_input()),
 
         is_sideways_calibrated: false,
