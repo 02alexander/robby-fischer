@@ -42,6 +42,10 @@ impl Default for Board {
     }
 }
 
+pub fn squares() -> impl Iterator<Item = (usize, usize)> {
+    (0..8).flat_map(|rank| (0..14).map(move |file| (file, rank)))
+}
+
 impl Board {
     pub const SQUARE_SIZE: f64 = 0.05;
 
@@ -97,9 +101,9 @@ impl Board {
                     cap,
                     promote,
                 } => {
-                    let from = (from.file as usize, from.rank as usize);
-                    let to = (to.file as usize, to.rank as usize);
-                    let cap = cap.map(|sq| (sq.file as usize, sq.rank as usize));
+                    let from = (from.file, from.rank);
+                    let to = (to.file, to.rank);
+                    let cap = cap.map(|sq| (sq.file, sq.rank));
 
                     if let Some(cap) = cap {
                         if moved_black != 1 {
@@ -142,6 +146,9 @@ impl Board {
                             continue;
                         };
                         let src = (8, rank);
+                        if new_colors[src.0][src.1].is_some() {
+                            continue;
+                        }
 
                         let Some(rank) = (0..8).find(|&rank| {
                             position[8][rank].is_none() && new_colors[8][rank] == Some(Color::White)
@@ -164,10 +171,10 @@ impl Board {
                     king_dst,
                     rook_dst,
                 } => {
-                    let ks = (king_src.file as usize, king_src.rank as usize);
-                    let rs = (rook_src.file as usize, rook_src.rank as usize);
-                    let kd = (king_dst.file as usize, king_dst.rank as usize);
-                    let rd = (rook_dst.file as usize, rook_dst.rank as usize);
+                    let ks = (king_src.file, king_src.rank);
+                    let rs = (rook_src.file, rook_src.rank);
+                    let kd = (king_dst.file, king_dst.rank);
+                    let rd = (rook_dst.file, rook_dst.rank);
 
                     let mut moved = 0;
                     if ks != kd && ks != rd {
@@ -207,7 +214,7 @@ impl Board {
                     role,
                 }) = self.position[file][rank]
                 {
-                    let square = Square::new(file as u8, rank as u8);
+                    let square = Square::new(file, rank);
                     match role {
                         Role::Pawn => pawn_moves(self, square, &mut moves),
                         Role::Knight => knight_moves(self, square, &mut moves),
@@ -230,13 +237,13 @@ impl Board {
             } => {
                 if king_dst != king_src
                     && king_dst != rook_src
-                    && self.position[king_dst.file as usize][king_dst.rank as usize].is_some()
+                    && self.position[king_dst.file][king_dst.rank].is_some()
                 {
                     return false;
                 }
                 if rook_dst != king_src
                     && rook_dst != rook_src
-                    && self.position[rook_dst.file as usize][rook_dst.rank as usize].is_some()
+                    && self.position[rook_dst.file][rook_dst.rank].is_some()
                 {
                     return false;
                 }
@@ -248,34 +255,30 @@ impl Board {
 
     pub fn real_world_coordinate(file: u32, rank: u32) -> Vector3<f64> {
         if file >= 8 {
-            let x = (7.0 - rank as f64 + 1.3) * Self::SQUARE_SIZE;
-            let y = if file >= 4 {
-                (7.0 - file as f64) * Self::SQUARE_SIZE - 0.01
-            } else {
-                (7.0 - file as f64) * Self::SQUARE_SIZE + 0.01
-            };
-            Vector3::new(x, y, 0.0)
+            let x = (7.0 - rank as f64) * Self::SQUARE_SIZE;
+            let y = (file as f64 + 0.8) * Self::SQUARE_SIZE + if file >= 11 { 0.01 } else { 0.0 };
+            Vector3::new(x, y, -0.005)
         } else {
             Vector3::new(
                 (7.0 - rank as f64) * Self::SQUARE_SIZE,
-                (7.0 - file as f64) * Self::SQUARE_SIZE,
+                (file as f64) * Self::SQUARE_SIZE,
                 0.0,
             )
         }
     }
 
-    pub fn move_piece(&mut self, arm: &mut Arm, start: (usize, usize), end: (usize, usize)) {
-        assert!(start.0 < 14);
-        assert!(start.1 < 8);
-        assert!(end.0 < 14);
-        assert!(end.1 < 8);
-        if let Some(piece) = self.position[start.0][start.1] {
+    pub fn move_piece(&mut self, arm: &mut Arm, start: Square, end: Square) {
+        assert!(start.file < 14);
+        assert!(start.rank < 8);
+        assert!(end.file < 14);
+        assert!(end.rank < 8);
+        if let Some(piece) = self.position[start.file][start.rank].take() {
             let role = piece.role;
 
             arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
             let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
             arm.smooth_move_claw_to(
-                Self::real_world_coordinate(start.0 as u32, start.1 as u32) + dz,
+                Self::real_world_coordinate(start.file as u32, start.rank as u32) + dz,
             );
             arm.smooth_move_z(role.grip_height());
             arm.grip();
@@ -283,13 +286,54 @@ impl Board {
             // Moves to end and releases the piece
             arm.smooth_move_z(role.height() + Role::MAX_ROLE_HEIGHT + 0.01);
             let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
-            arm.smooth_move_claw_to(Self::real_world_coordinate(end.0 as u32, end.1 as u32) + dz);
+            arm.smooth_move_claw_to(
+                Self::real_world_coordinate(end.file as u32, end.rank as u32) + dz,
+            );
             arm.smooth_move_z(role.grip_height());
             arm.release();
 
             // Move claw up so it isn't in the way.
             arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
+
+            self.position[end.file][end.rank] = Some(piece);
         }
+    }
+
+    pub fn diff(&self, target: &Board) -> Vec<(Square, Square)> {
+        let mut pos = self.position;
+        let mut actions = Vec::new();
+        'outer: loop {
+            for (file, rank) in squares() {
+                if pos[file][rank].is_none() && target.position[file][rank].is_some() {
+                    let target_piece = target.position[file][rank].unwrap();
+                    for (file2, rank2) in squares() {
+                        if pos[file2][rank2] == Some(target_piece)
+                            && target.position[file2][rank2] != Some(target_piece)
+                        {
+                            actions.push((Square::new(file2, rank2), Square::new(file, rank)));
+                            pos[file][rank] = pos[file2][rank2].take();
+                            continue 'outer;
+                        }
+                    }
+                    panic!("oh no");
+                }
+            }
+
+            for (file, rank) in squares() {
+                if pos[file][rank] != target.position[file][rank] {
+                    for (file2, rank2) in squares() {
+                        if pos[file2][rank2].is_none() {
+                            actions.push((Square::new(file, rank), Square::new(file2, rank2)));
+                            pos[file2][rank2] = pos[file][rank].take();
+                            continue 'outer;
+                        }
+                    }
+                    panic!("no empty squares");
+                }
+            }
+            break;
+        }
+        actions
     }
 }
 

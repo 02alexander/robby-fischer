@@ -83,8 +83,8 @@ pub struct Piece {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Square {
-    pub file: u8,
-    pub rank: u8,
+    pub file: usize,
+    pub rank: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -148,10 +148,10 @@ impl Position {
             for rank in 0..8 {
                 if self.board[file][rank] != other.board[file][rank] {
                     if let Some(piece) = self.board[file][rank] {
-                        removed.push((Square::new(file as u8, rank as u8), piece));
+                        removed.push((Square::new(file, rank), piece));
                     }
                     if let Some(piece) = other.board[file][rank] {
-                        added.push((Square::new(file as u8, rank as u8), piece));
+                        added.push((Square::new(file, rank), piece));
                     }
                 }
             }
@@ -191,19 +191,19 @@ impl Default for Position {
 }
 
 impl Square {
-    pub fn new(file: u8, rank: u8) -> Self {
+    pub fn new(file: usize, rank: usize) -> Self {
         Square { file, rank }
     }
-    pub fn translate(&self, dx: i8, dy: i8) -> Option<Self> {
-        if (dx + self.file as i8) < 0 || (dy + self.rank as i8) < 0 {
+    pub fn translate(&self, dx: isize, dy: isize) -> Option<Self> {
+        if (dx + self.file as isize) < 0 || (dy + self.rank as isize) < 0 {
             return None;
         }
-        if dx + self.file as i8 >= 8 || dy + self.rank as i8 >= 8 {
+        if dx + self.file as isize >= 8 || dy + self.rank as isize >= 8 {
             return None;
         }
         Some(Square::new(
-            (dx + self.file as i8) as u8,
-            (dy + self.rank as i8) as u8,
+            (dx + self.file as isize) as usize,
+            (dy + self.rank as isize) as usize,
         ))
     }
 }
@@ -212,13 +212,13 @@ impl std::ops::Index<Square> for Position {
     type Output = Option<Piece>;
 
     fn index(&self, sqr: Square) -> &Self::Output {
-        &self.board[sqr.file as usize][sqr.rank as usize]
+        &self.board[sqr.file][sqr.rank]
     }
 }
 
 impl std::ops::IndexMut<Square> for Position {
     fn index_mut(&mut self, sqr: Square) -> &mut Self::Output {
-        &mut self.board[sqr.file as usize][sqr.rank as usize]
+        &mut self.board[sqr.file][sqr.rank]
     }
 }
 
@@ -262,4 +262,23 @@ fn optimize_actions(
     actions.extend(added.into_iter().map(|(s, p)| Action::Add(s, p)));
 
     actions
+}
+
+impl From<shakmaty::Role> for Role {
+    fn from(value: shakmaty::Role) -> Self {
+        match value {
+            shakmaty::Role::Pawn => Role::Pawn,
+            shakmaty::Role::Knight => Role::Knight,
+            shakmaty::Role::Bishop => Role::Bishop,
+            shakmaty::Role::Rook => Role::Rook,
+            shakmaty::Role::Queen => Role::Queen,
+            shakmaty::Role::King => Role::King,
+        }
+    }
+}
+
+impl From<shakmaty::Square> for Square {
+    fn from(value: shakmaty::Square) -> Self {
+        Square::new(value.file() as usize, value.rank() as usize)
+    }
 }

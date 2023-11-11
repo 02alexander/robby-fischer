@@ -35,7 +35,7 @@ fn main() {
 
     loop {
         if let Ok((data, _)) = vstream.receiver.try_recv() {
-            let _marks = detector.detect(&data, 640, 480);
+            let _marks = detector.detect(data, 640, 480);
 
             let _grayscale: ImageBuffer<Rgb<_>, _> =
                 ImageBuffer::from_vec(640, 480, data.to_vec()).unwrap();

@@ -199,7 +199,7 @@ impl Stepper {
         }
         if self.target_pos != self.cur_pos {
             let cur_time = timer.get_counter().ticks() as u32;
-            if cur_time - self.time_us_last_step > self.step_time_us {
+            if cur_time.wrapping_sub(self.time_us_last_step) > self.step_time_us {
                 self.step();
                 self.time_us_last_step = cur_time;
             }

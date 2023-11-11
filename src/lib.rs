@@ -10,6 +10,9 @@ pub enum Response {
     QueueSize(u32, u32), // in queue, max queue size
     #[burk(name = "pos")]
     Position(f32, f32, f32),
+    #[burk(name = "chessbtn")]
+    ChessButtonStatus(bool), // Checks if the chess button has been pressed since this command wast last sent. 
+  
 }
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
@@ -40,4 +43,7 @@ pub enum Command {
     QueueSize,
     #[burk(name = "boot")]
     RestartToBoot,
+    #[burk(name = "chessbtn")]
+    ChessButton, // Checks if the chess button has been pressed since this command wast last sent. 
+
 }

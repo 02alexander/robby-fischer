@@ -13,7 +13,6 @@ members = [
     "eagle",
     "parrot",
     "planner",
-    "duckchess",
 ]
 
 [profile.dev]

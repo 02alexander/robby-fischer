@@ -21,7 +21,7 @@ pub enum PieceMove {
 }
 
 fn get_piece(board: &Board, square: Square) -> Option<Piece> {
-    board.position[square.file as usize][square.rank as usize]
+    board.position[square.file][square.rank]
 }
 fn get_color(board: &Board, square: Square) -> Option<Color> {
     get_piece(board, square).map(|piece| piece.color)
@@ -83,7 +83,7 @@ pub fn pawn_moves(pos: &Board, from: Square, buf: &mut Vec<PieceMove>) {
 fn straight_moves(
     pos: &Board,
     from: Square,
-    delta: &[(i8, i8)],
+    delta: &[(isize, isize)],
     sliding: bool,
     buf: &mut Vec<PieceMove>,
 ) {

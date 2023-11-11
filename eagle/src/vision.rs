@@ -57,7 +57,7 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
         }
 
         let inp_arr =
-            cvvec::Mat::from_slice_rows_cols(&image.to_vec(), KINECT_HEIGHT, KINECT_WIDTH).unwrap();
+            cvvec::Mat::from_slice_rows_cols(&image, KINECT_HEIGHT, KINECT_WIDTH).unwrap();
         let mut clahed_mat = inp_arr.clone();
         clahe.apply(&inp_arr, &mut clahed_mat).unwrap();
 
@@ -134,9 +134,9 @@ struct CoordConverter {
 impl CoordConverter {
     pub fn from_markers(markers: [Vec2; 4]) -> Option<Self> {
         let color_param: Mat3 = Mat3::from_cols(
-            Vec3::new(521.04658096, 0.0, 0.0),
-            Vec3::new(0., 520.19390147, 0.0),
-            Vec3::new(316.77552846, 258.14152348, 1.),
+            Vec3::new(521.0466, 0.0, 0.0),
+            Vec3::new(0., 520.1939, 0.0),
+            Vec3::new(316.77554, 258.1415, 1.),
         );
 
         let camera_matrix: cvvec::Mat = cvvec::Mat::from_slice_2d(&[
@@ -147,7 +147,7 @@ impl CoordConverter {
         .unwrap();
 
         let color_dist_coeffs: Vec<f32> =
-            vec![0.24082551, -0.67781624, 0.00130271, 0.00447125, 0.60102011];
+            vec![0.2408255, -0.6778162, 0.00130271, 0.00447125, 0.6010201];
         let dist_coeffs: cvvec::Vector<f32> = color_dist_coeffs.clone().into();
 
         let object_points: cvvec::Vector<cvvec::Point3d> = vec![
@@ -258,23 +258,22 @@ fn count_in_frustum(
     let bottom_yoffset = 0.2;
     let top_xoffset = -0.2;
     let top_yoffset = -0.2;
-    let top_right_xoffset = if inside_board {
+    let top_left_xoffset = if inside_board {
         top_xoffset
     } else {
-        -top_xoffset - 0.8
+        top_xoffset - 0.8
     };
     let object_points: Vec<Vec3> = vec![
         point + Vec3::from((-0.5 + bottom_xoffset, -0.5 + bottom_yoffset, 0.0)),
         point + Vec3::from((-0.5 + bottom_xoffset, 0.5 - bottom_yoffset, 0.0)),
         point + Vec3::from((0.5 - bottom_xoffset, 0.5 - bottom_yoffset, 0.0)),
         point + Vec3::from((0.5 - bottom_xoffset, -0.5 + bottom_yoffset, 0.0)),
-        point + Vec3::from((-0.5 + top_xoffset, -0.5 + top_yoffset, 1.6)),
-        point + Vec3::from((-0.5 + top_xoffset, 0.5 - top_yoffset, 1.6)),
-        point + Vec3::from((0.5 - top_right_xoffset, 0.5 - top_yoffset, 1.6)),
-        point + Vec3::from((0.5 - top_right_xoffset, -0.5 + top_yoffset, 1.6)),
+        point + Vec3::from((-0.5 + top_left_xoffset, -0.5 + top_yoffset, 1.6)),
+        point + Vec3::from((-0.5 + top_left_xoffset, 0.5 - top_yoffset, 1.6)),
+        point + Vec3::from((0.5 - top_xoffset, 0.5 - top_yoffset, 1.6)),
+        point + Vec3::from((0.5 - top_xoffset, -0.5 + top_yoffset, 1.6)),
         point + Vec3::from((0.0, 0.0, 0.0)),
-    ]
-    .into();
+    ];
 
     let image_points = coord_converter.project_points(&object_points);
 
@@ -335,6 +334,7 @@ pub struct Vision {
 }
 
 impl Vision {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let freenect = FreenectContext::init_with_video().unwrap();
         let freenect = Box::leak(Box::new(freenect));
@@ -383,7 +383,7 @@ impl Vision {
         for rank in 0..8 {
             for file in 0..8 {
                 let (count, mid_point, intensities) = count_in_frustum(
-                    Vec3::new(file as f32 + 0.5, rank as f32 + 0.5, 0.0 as f32),
+                    Vec3::new(file as f32 + 0.5, rank as f32 + 0.5, 0.0),
                     true,
                     &coord_converter,
                     &threshed_img,

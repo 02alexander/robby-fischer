@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use nalgebra::{Rotation2, Transform, Vector2, Vector3};
+use nalgebra::{Rotation2, Vector2, Vector3};
 use robby_fischer::{Command, Response};
 
 use crate::termdev::TerminalDevice;
@@ -37,6 +37,14 @@ impl Arm {
     }
 
     pub fn calib(&mut self) {
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
         loop {
             std::thread::sleep(Duration::from_millis(100));
             self.send_command(Command::IsCalibrated).unwrap();
@@ -56,14 +64,6 @@ impl Arm {
             }
             self.send_command(Command::CalibrateArm).unwrap();
         }
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
@@ -168,19 +168,17 @@ impl Arm {
         let threshold = 0.075;
         if pos.x >= threshold {
             pos.x += (pos.x - threshold) / (0.35 - threshold) * 0.001;
-            pos.z += (pos.x - threshold) / (0.35 - threshold) * 0.015;
+            pos.z += (pos.x - threshold) / (0.35 - threshold) * 0.002;
         }
         pos
     }
 
     pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
-        // let target_pos = Self::practical_real_world_coordinate(pos);
-        let target_pos = pos;
+        let target_pos = Self::practical_real_world_coordinate(pos);
         // let target_pos = pos;
         const N_POINTS_CM: f64 = 3.0;
         let npoints = (self.claw_pos - target_pos).norm() * 100.0 * N_POINTS_CM;
         for chunk in linspace(self.claw_pos, target_pos, npoints as u32)
-            .skip(0)
             .map(|e| (e, Arm::speed_factor(self.claw_pos, e, target_pos)))
             .collect::<Vec<_>>()
             .chunks(20)

@@ -275,7 +275,7 @@ where
 
     pub fn run(&mut self, timer: &Timer) {
         let pressed = self.chess_button.is_low().unwrap();
-        if self.chess_button_last_state && pressed {
+        if !self.chess_button_last_state && pressed {
             self.chess_button_been_pressed = true;
         }
         self.chess_button_last_state = pressed;

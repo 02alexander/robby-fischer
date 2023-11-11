@@ -5,9 +5,8 @@ use crossterm::{
 };
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
-use planner::board::Board;
 use planner::{arm::Arm, termdev::TerminalDevice};
-use robby_fischer::{Command, Response};
+use robby_fischer::Command;
 use std::{io::Stdout, panic::AssertUnwindSafe, sync::Mutex, time::Duration};
 use tui::{
     backend::{Backend, CrosstermBackend},
@@ -62,7 +61,7 @@ fn main() {
 
 fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
     println!("starting...");
-    let mut td = TerminalDevice::new("/dev/serial/by-id/usb-Raspberry_Pi_Pico_1234-if00")?;
+    let mut td = TerminalDevice::new("/dev/serial/by-id/usb-alebe_herla_robby_fischer_1972-if00")?;
     td.configure(BaudRate::B115200)?;
     td.set_timeout(1)?;
     let mut arm = Arm::new(td);
