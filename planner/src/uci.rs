@@ -105,6 +105,10 @@ impl Uci {
                             _ => {}
                         }
                     }
+                    if multipv.is_none() {
+                        continue;
+                    }
+                    dbg!(&line);
                     if multipv.unwrap() == 1 {
                         lines.clear();
                     }
@@ -155,7 +159,7 @@ impl Engine {
 
         if let Some((mov, _)) = moves
             .iter()
-            .find(|&&(_, score)| self.gambit_range.contains(&score))
+            .rfind(|&&(_, score)| self.gambit_range.contains(&score))
         {
             return Ok(mov.clone());
         }

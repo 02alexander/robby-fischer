@@ -2,6 +2,7 @@ use eagle::Vision;
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
 use planner::{
+    uci::Engine,
     arm::Arm,
     board::Board,
     chess::{Color, Piece, Square},
@@ -10,7 +11,6 @@ use planner::{
 };
 use robby_fischer::{Command, Response};
 use shakmaty::{Chess, Position, uci::Uci};
-use uci::Engine;
 use std::{
     sync::mpsc::sync_channel,
     time::Duration,
@@ -86,7 +86,7 @@ fn main() -> anyhow::Result<()> {
 
     arm.translation_offset = Vector3::new(-0.1383520286271571, -0.015, -0.015553090130407);
 
-    let engine = Engine::new("stockfish").unwrap().movetime(4000);
+    let mut engine = Engine::new("stockfish", &[])?;
     let mut played_uci_moves = Vec::new();
 
     arm.calib();
@@ -153,19 +153,22 @@ fn main() -> anyhow::Result<()> {
             println!("illegal moves");
             continue;
         };
-
         arm.smooth_move_z(0.2);
         board = new_board;
         chess_board = chess_board.play(&lm).unwrap();
         played_uci_moves.push(lm.to_uci(shakmaty::CastlingMode::Standard).to_string());
+        engine.start_search(&played_uci_moves)?;
         let target = chess_pos_to_board(chess_board.clone()).unwrap();
         for (src, dst) in board.diff(&target) {
             board.move_piece(&mut arm, src, dst);
         }
         println!("{}", board);
+        std::thread::sleep(Duration::from_millis(2000));
+        let engine_move = engine.stop_search()?;
 
-        engine.make_moves(&played_uci_moves).unwrap();
-        let engine_move = engine.bestmove().unwrap();
+        // engine.make_moves(&played_uci_moves).unwrap();
+        // let engine_move = engine.bestmove().unwrap();
+
         println!("{}", engine_move);
         let mv = Uci::from_ascii(engine_move.as_bytes()).unwrap().to_move(&chess_board).unwrap();
         chess_board = chess_board.play(&mv).unwrap();

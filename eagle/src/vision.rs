@@ -253,7 +253,7 @@ fn count_in_frustum(
     threshed_img: &RgbImage,
     clahed_img: &RgbImage,
     mask_img: &mut GrayImage,
-) -> (u32, Vec2, Vec<u8>) {
+) -> (u32, Vec2, Vec<u8>, [u32; 4]) {
     let bottom_xoffset = 0.1;
     let bottom_yoffset = 0.2;
     let top_xoffset = -0.2;
@@ -281,12 +281,17 @@ fn count_in_frustum(
 
     let mut cnt = 0;
     let mut intensities = Vec::new();
-
+    let mut real_bounding_box = [u32::MAX, u32::MIN, u32::MAX,u32::MIN];
     for x in bounding_box[0]..bounding_box[1] {
         for y in bounding_box[2]..bounding_box[3] {
             if inside_convex_polygon((x as f32, y as f32).into(), &image_points[0..4])
                 && inside_convex_polygon((x as f32, y as f32).into(), &image_points[4..8])
             {
+                real_bounding_box[0] = x.min(real_bounding_box[0]);
+                real_bounding_box[1] = x.max(real_bounding_box[1]);
+                real_bounding_box[2] = y.min(real_bounding_box[2]);
+                real_bounding_box[3] = y.max(real_bounding_box[3]);
+
                 mask_img[(x, y)] = [255].into();
                 for channel in 0..3 {
                     if threshed_img[(x, y)].0[channel] == 255 {
@@ -300,7 +305,7 @@ fn count_in_frustum(
     let mid_point = image_points[8];
     intensities.sort_unstable();
 
-    (cnt, mid_point, intensities)
+    (cnt, mid_point, intensities, real_bounding_box)
 }
 
 fn bounding_box(polygon: &[Vec2]) -> [u32; 4] {
@@ -350,6 +355,101 @@ impl Vision {
         }
     }
 
+    pub fn train_data(&mut self) ->Option<Vec<(GrayImage, bool)>> {
+        let (_, data) = self.kinect.receive();
+
+        let color_img: ImageBuffer<Rgb<_>, _> =
+            ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
+                .unwrap();
+        #[cfg(feature = "vis")]
+        REC.lock()
+            .unwrap()
+            .log(
+                "images/image",
+                &rerun::Image::try_from(color_img.clone()).unwrap(),
+            )
+            .unwrap();
+
+        let marks = self.detector.detect(&data, 640, 480)?;
+
+        let (threshed_img, clahed_img) = highlight_edges(&color_img);
+
+        let coord_converter = CoordConverter::from_markers(marks).unwrap();
+
+        let mut mask = GrayImage::from_fn(KINECT_HEIGHT as u32, KINECT_HEIGHT as u32, |_, _| {
+            [255].into()
+        });
+        mask.iter_mut().for_each(|p| *p = 0);
+
+        #[cfg(feature = "vis")]
+        let mut square_mid_points: Vec<Position2D> = Vec::new();
+
+        let mut square_intensities = Vec::new();
+        let mut bounding_boxes = Vec::new();
+        for rank in 0..8 {
+            for file in 0..8 {
+                let (count, mid_point, intensities, bounding_box) = count_in_frustum(
+                    Vec3::new(file as f32 + 0.5, rank as f32 + 0.5, 0.0),
+                    true,
+                    &coord_converter,
+                    &threshed_img,
+                    &clahed_img,
+                    &mut mask,
+                );
+                bounding_boxes.push(bounding_box);
+                self.count_avg[file + rank * 8] =
+                    0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
+
+                let _ = &mid_point;
+                #[cfg(feature = "vis")]
+                square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+                square_intensities.push(intensities);
+            }
+        }
+        for rank in 0..8 {
+            let fudge_factor = if rank >= 4 { 0.1 } else { -0.1 };
+            let (count, mid_point, intensities, bounding_box) = count_in_frustum(
+                Vec3::new(9.3, rank as f32 + 0.5 + fudge_factor, -0.1),
+                false,
+                &coord_converter,
+                &threshed_img,
+                &clahed_img,
+                &mut mask,
+            );
+            bounding_boxes.push(bounding_box);
+            self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
+
+            let _ = &mid_point;
+            #[cfg(feature = "vis")]
+            square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+            square_intensities.push(intensities);
+        }
+
+        let mut images = Vec::new();
+        for (i, (&count, bounding_box)) in self.count_avg.iter().zip(bounding_boxes).enumerate() {
+            if count > 70.0 {
+                let white_square = if i < 64 {
+                    let rank = i / 8;
+                    let file = i % 8;
+                    (rank + file) % 2 == 1
+                } else {
+                    true
+                };
+
+                let height = bounding_box[3]-bounding_box[2];
+                let width = bounding_box[1] - bounding_box[0];
+                let mut image = GrayImage::new(width, height);
+                for (x, y, pixel) in image.enumerate_pixels_mut() {
+                    pixel.0[0] = clahed_img[(x+bounding_box[0],y+bounding_box[2])].0[1];
+                }
+                images.push((image, white_square));
+            }
+        }
+        Some(images)
+    }
+
     pub fn pieces(&mut self) -> Option<Vec<Option<bool>>> {
         let (_, data) = self.kinect.receive();
 
@@ -382,7 +482,7 @@ impl Vision {
         let mut square_intensities = Vec::new();
         for rank in 0..8 {
             for file in 0..8 {
-                let (count, mid_point, intensities) = count_in_frustum(
+                let (count, mid_point, intensities, _bounding_box) = count_in_frustum(
                     Vec3::new(file as f32 + 0.5, rank as f32 + 0.5, 0.0),
                     true,
                     &coord_converter,
@@ -402,7 +502,7 @@ impl Vision {
         }
         for rank in 0..8 {
             let fudge_factor = if rank >= 4 { 0.1 } else { -0.1 };
-            let (count, mid_point, intensities) = count_in_frustum(
+            let (count, mid_point, intensities, _bounding_box) = count_in_frustum(
                 Vec3::new(9.3, rank as f32 + 0.5 + fudge_factor, -0.1),
                 false,
                 &coord_converter,

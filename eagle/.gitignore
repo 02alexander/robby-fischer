@@ -1,0 +1,4 @@
+env/
+train_images/*
+black_pieces/*
+white_pieces/*
