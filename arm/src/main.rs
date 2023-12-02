@@ -220,7 +220,7 @@ where
                     );
                 }
                 Command::Grip => {
-                    self.servo_channel.set_duty(1000 + 300);
+                    self.servo_channel.set_duty(1000 + 370);
                 }
                 Command::Release => {
                     self.servo_channel.set_duty(1000);

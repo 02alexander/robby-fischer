@@ -434,7 +434,7 @@ impl Vision {
                 };
                 let i1 = values.len() / 10;
                 let i2 = values.len() * 9 / 10;
-                let wrong_color = values[i2] - values[i1] > 140;
+                let wrong_color = values[i2] - values[i1] > 120;
                 white_square ^ wrong_color
             })
             .collect();

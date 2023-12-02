@@ -197,6 +197,12 @@ impl Board {
                         continue;
                     }
 
+                    let king = position[ks.0][ks.1].take();
+                    let rook = position[rs.0][rs.1].take();
+                    position[kd.0][kd.1] = king;
+                    position[rd.0][rd.1] = rook;
+
+
                     return Some((Board { position }, mv));
                 }
             }

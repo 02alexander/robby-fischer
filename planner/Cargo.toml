@@ -15,7 +15,8 @@ robby-fischer = {path = ".." }
 arrayvec = "0.7.2"
 lazy_static = "1.4.0"
 parrot = {path="../parrot" }
-eagle = {path = "../eagle"}
+eagle = {path = "../eagle", features=["vis"]}
+# eagle = {path = "../eagle"}
 shakmaty = "0.26.0"
 uci = "0.1.3"
 

@@ -112,6 +112,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("waiting for button...");
 
+    let mut moves_since_cailbration = 0;
     loop {
         std::thread::sleep(Duration::from_millis(10));
         arm.send_command(Command::ChessButton).unwrap();
@@ -152,6 +153,8 @@ fn main() -> anyhow::Result<()> {
             println!("illegal moves");
             continue;
         };
+
+        arm.smooth_move_z(0.2);
         board = new_board;
         chess_board = chess_board.play(&lm).unwrap();
         played_uci_moves.push(lm.to_uci(shakmaty::CastlingMode::Standard).to_string());
@@ -175,5 +178,11 @@ fn main() -> anyhow::Result<()> {
         println!("{}", board);
 
         arm.smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15));
+
+        if moves_since_cailbration >= 10 {
+            arm.calib_all_except_sideways();
+        }
+
+        moves_since_cailbration += 1;
     }
 }

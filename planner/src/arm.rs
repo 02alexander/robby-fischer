@@ -37,14 +37,7 @@ impl Arm {
     }
 
     pub fn calib(&mut self) {
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
-        std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
+        self.calib_all_except_sideways();
         loop {
             std::thread::sleep(Duration::from_millis(100));
             self.send_command(Command::IsCalibrated).unwrap();
@@ -64,6 +57,17 @@ impl Arm {
             }
             self.send_command(Command::CalibrateArm).unwrap();
         }
+    }
+
+    pub fn calib_all_except_sideways(&mut self) {
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        std::thread::sleep(Duration::from_millis(100));
+        self.send_command(Command::CalibrateArm).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
