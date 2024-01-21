@@ -47,7 +47,7 @@ impl Detector {
             color_vec.push((gray / 3) as u8);
         }
         let mat = Mat::from_slice_rows_cols(&color_vec, height, width).unwrap();
-
+        
         self.detector
             .detect_markers(&mat, &mut corners, &mut ids, &mut rejected)
             .unwrap();

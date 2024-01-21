@@ -89,11 +89,11 @@ fn main() -> anyhow::Result<()> {
     let mut engine = Engine::new("stockfish", &[])?;
     let mut played_uci_moves = Vec::new();
 
-    arm.calib();
+    arm.calib().unwrap();
     println!("DONE CALIBRATING");
 
-    arm.release();
-    arm.sync_pos()?;
+    arm.release().unwrap();
+    arm.sync_pos().unwrap();
     // arm.move_claw_to(Vector3::new(0.0, 0.45, 0.2));
 
     let (vision_sender, vision_recv) = sync_channel(0);
@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
     let mut chess_board = Chess::default();
     let mut board = chess_pos_to_board(chess_board.clone()).unwrap();
 
-    arm.smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15));
+    arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15))?;
 
     println!("waiting for button...");
 
@@ -153,14 +153,21 @@ fn main() -> anyhow::Result<()> {
             println!("illegal moves");
             continue;
         };
-        arm.smooth_move_z(0.2);
+        if let Err(e) = arm.smooth_move_z(0.2) {
+            dbg!(e);
+            continue;
+        }
         board = new_board;
         chess_board = chess_board.play(&lm).unwrap();
         played_uci_moves.push(lm.to_uci(shakmaty::CastlingMode::Standard).to_string());
         engine.start_search(&played_uci_moves)?;
         let target = chess_pos_to_board(chess_board.clone()).unwrap();
         for (src, dst) in board.diff(&target) {
-            board.move_piece(&mut arm, src, dst);
+            if let Err(e) = board.move_piece(&mut arm, src, dst) {
+                dbg!(e);
+                continue;
+            }
+    
         }
         println!("{}", board);
         std::thread::sleep(Duration::from_millis(2000));
@@ -176,14 +183,29 @@ fn main() -> anyhow::Result<()> {
 
         let target = chess_pos_to_board(chess_board.clone()).unwrap();
         for (src, dst) in board.diff(&target) {
-            board.move_piece(&mut arm, src, dst);
+            if let Err(e) = board.move_piece(&mut arm, src, dst) {
+                dbg!(e);
+                continue;
+            }
         }
         println!("{}", board);
 
-        arm.smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15));
-
-        if moves_since_cailbration >= 10 {
-            arm.calib_all_except_sideways();
+        if let Err(e) = arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15)) {
+            dbg!(e);
+            continue;
+        }
+        if moves_since_cailbration >= 10 {    
+            if let Err(e) = arm.calib_all_except_sideways() {
+                dbg!(e);
+                continue;
+            }
+            loop {
+                if let Err(e) = arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15)) {
+                    dbg!(e);
+                    std::thread::sleep(Duration::from_millis(100));
+                    continue;
+                }
+            }
         }
 
         moves_since_cailbration += 1;

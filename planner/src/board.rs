@@ -273,7 +273,7 @@ impl Board {
         }
     }
 
-    pub fn move_piece(&mut self, arm: &mut Arm, start: Square, end: Square) {
+    pub fn move_piece(&mut self, arm: &mut Arm, start: Square, end: Square) -> std::io::Result<()> {
         assert!(start.file < 14);
         assert!(start.rank < 8);
         assert!(end.file < 14);
@@ -281,28 +281,29 @@ impl Board {
         if let Some(piece) = self.position[start.file][start.rank].take() {
             let role = piece.role;
 
-            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
+            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01)?;
             let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
-            arm.smooth_move_claw_to(
+            arm.practical_smooth_move_claw_to(
                 Self::real_world_coordinate(start.file as u32, start.rank as u32) + dz,
-            );
-            arm.smooth_move_z(role.grip_height());
-            arm.grip();
+            )?;
+            arm.smooth_move_z(role.grip_height())?;
+            arm.grip()?;
 
             // Moves to end and releases the piece
-            arm.smooth_move_z(role.height() + Role::MAX_ROLE_HEIGHT + 0.01);
+            arm.smooth_move_z(role.height() + Role::MAX_ROLE_HEIGHT + 0.01)?;
             let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
-            arm.smooth_move_claw_to(
+            arm.practical_smooth_move_claw_to(
                 Self::real_world_coordinate(end.file as u32, end.rank as u32) + dz,
-            );
-            arm.smooth_move_z(role.grip_height());
-            arm.release();
+            )?;
+            arm.smooth_move_z(role.grip_height())?;
+            arm.release()?;
 
             // Move claw up so it isn't in the way.
-            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01);
+            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01)?;
 
             self.position[end.file][end.rank] = Some(piece);
         }
+        Ok(())
     }
 
     pub fn diff(&self, target: &Board) -> Vec<(Square, Square)> {

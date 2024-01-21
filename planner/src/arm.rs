@@ -1,7 +1,7 @@
 use core::panic;
 use std::{
     f64::consts::PI,
-    io::{BufRead, BufReader, Error, Write},
+    io::{BufRead, BufReader, Error, Write, ErrorKind},
     ops,
     time::Duration,
 };
@@ -36,38 +36,40 @@ impl Arm {
         }
     }
 
-    pub fn calib(&mut self) {
-        self.calib_all_except_sideways();
+    pub fn calib(&mut self) -> std::io::Result<()> {
+        self.calib_all_except_sideways()?;
         loop {
             std::thread::sleep(Duration::from_millis(100));
-            self.send_command(Command::IsCalibrated).unwrap();
+            self.send_command(Command::IsCalibrated)?;
             let res = self.get_response();
             if let Err(e) = &res {
                 if e.kind() == std::io::ErrorKind::WouldBlock {
-                    self.send_command(Command::IsCalibrated).unwrap();
+                    self.send_command(Command::IsCalibrated)?;
                     continue;
                 }
             }
-            let response = res.unwrap();
+            let response = res?;
             dbg!(response);
             if response != Response::IsCalibrated(true) {
-                self.send_command(Command::CalibrateSideways).unwrap();
+                self.send_command(Command::CalibrateSideways)?;
             } else {
                 break;
             }
-            self.send_command(Command::CalibrateArm).unwrap();
+            self.send_command(Command::CalibrateArm)?;
         }
+        Ok(())
     }
 
-    pub fn calib_all_except_sideways(&mut self) {
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+    pub fn calib_all_except_sideways(&mut self) -> std::io::Result<()> {
+        self.send_command(Command::CalibrateArm)?;
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15));
+        self.send_command(Command::CalibrateArm)?;
+        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
-        self.send_command(Command::CalibrateArm).unwrap();
+        self.send_command(Command::CalibrateArm)?;
         std::thread::sleep(Duration::from_millis(100));
+        Ok(())
     }
 
     pub fn sync_pos(&mut self) -> std::io::Result<()> {
@@ -88,19 +90,15 @@ impl Arm {
         Ok(())
     }
 
-    pub fn move_claw(&mut self, change: Vector3<f64>) {
-        self.move_claw_to(self.claw_pos + change);
+    pub fn move_claw(&mut self, change: Vector3<f64>) -> std::io::Result<()> {
+        self.move_claw_to(self.claw_pos + change)
     }
 
-    pub fn move_claw_to(&mut self, position: Vector3<f64>) {
+    pub fn move_claw_to(&mut self, position: Vector3<f64>) -> std::io::Result<()> {
         self.claw_pos = position;
         let (a1, a2, sd) = dbg!(self.angles(position));
-        // self.send_command(Command::MoveSideways(sd as f32)).unwrap();
-        // self.send_command(Command::MoveBottomArm(a1 as f32))
-        //     .unwrap();
-        // self.send_command(Command::MoveTopArm(a2 as f32)).unwrap();
-        self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0))
-            .unwrap();
+        self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0))?;
+        Ok(())
     }
 
     fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
@@ -131,11 +129,11 @@ impl Arm {
                 // eprintln!("recv: {:?}", trimmed.as_bytes());
                 if trimmed.is_empty() {
                     let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
-                    return Err(e);
+                    return Err(e.into());
                 }
-                Ok(trimmed.parse().unwrap())
+                trimmed.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -161,10 +159,10 @@ impl Arm {
         rot1 * (bottom_arm + rot2 * top_arm)
     }
 
-    pub fn smooth_move_z(&mut self, z: f64) {
+    pub fn smooth_move_z(&mut self, z: f64) -> std::io::Result<()> {
         let mut pos = self.claw_pos;
         pos.z = z;
-        self.smooth_move_claw_to(pos);
+        self.practical_smooth_move_claw_to(pos)
     }
 
     /// Computes the coordinates to move to compensate for inaccuracies when moving on the opposite end of the board.
@@ -177,7 +175,7 @@ impl Arm {
         pos
     }
 
-    pub fn smooth_move_claw_to(&mut self, pos: Vector3<f64>) {
+    pub fn practical_smooth_move_claw_to(&mut self, pos: Vector3<f64>) -> std::io::Result<()> {
         let target_pos = Self::practical_real_world_coordinate(pos);
         // let target_pos = pos;
         const N_POINTS_CM: f64 = 3.0;
@@ -197,17 +195,17 @@ impl Arm {
                     a2 as f32,
                     sd as f32,
                     scale as f32,
-                ))
-                .unwrap();
+                ))?;
             }
-            while self.queue_size() >= 15 {
+            while self.queue_size()? >= 15 {
                 std::thread::sleep(Duration::from_millis(20));
             }
         }
-        while self.queue_size() != 0 {
+        while self.queue_size()? != 0 {
             std::thread::sleep(Duration::from_millis(50));
         }
         self.claw_pos = target_pos;
+        Ok(())
     }
 
     pub fn speed_factor(start: Vector3<f64>, cur: Vector3<f64>, dst: Vector3<f64>) -> f64 {
@@ -219,14 +217,15 @@ impl Arm {
         }
     }
 
-    fn queue_size(&mut self) -> u32 {
+    fn queue_size(&mut self) -> std::io::Result<u32> {
         loop {
-            self.send_command(Command::QueueSize).unwrap();
+            self.send_command(Command::QueueSize)?;
+            std::thread::sleep(Duration::from_millis(10));
             let res = self.get_response();
             match res {
                 Ok(response) => {
                     if let Response::QueueSize(in_queue, _max) = response {
-                        return in_queue;
+                        return Ok(in_queue);
                     } else {
                         panic!("expected QueueSize, got '{:?}'", response);
                     }
@@ -235,23 +234,25 @@ impl Arm {
                     if e.kind() == std::io::ErrorKind::WouldBlock {
                         continue;
                     } else {
-                        panic!("error when reading queue size: {:?}", e);
+                        return Err(e);
                     }
                 }
             }
         }
     }
 
-    pub fn grip(&mut self) {
+    pub fn grip(&mut self) -> std::io::Result<()> {
         std::thread::sleep(Duration::from_millis(400));
-        self.send_command(Command::Grip).unwrap();
+        self.send_command(Command::Grip)?;
         std::thread::sleep(Duration::from_millis(400));
+        Ok(())
     }
 
-    pub fn release(&mut self) {
+    pub fn release(&mut self) -> std::io::Result<()> {
         std::thread::sleep(Duration::from_millis(400));
-        self.send_command(Command::Release).unwrap();
+        self.send_command(Command::Release)?;
         std::thread::sleep(Duration::from_millis(600));
+        Ok(())
     }
 }
 

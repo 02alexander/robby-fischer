@@ -1,4 +1,3 @@
-
 #[cfg(feature = "vis")]
 use std::sync::Mutex;
 
@@ -281,7 +280,7 @@ fn count_in_frustum(
 
     let mut cnt = 0;
     let mut intensities = Vec::new();
-    let mut real_bounding_box = [u32::MAX, u32::MIN, u32::MAX,u32::MIN];
+    let mut real_bounding_box = [u32::MAX, u32::MIN, u32::MAX, u32::MIN];
     for x in bounding_box[0]..bounding_box[1] {
         for y in bounding_box[2]..bounding_box[3] {
             if inside_convex_polygon((x as f32, y as f32).into(), &image_points[0..4])
@@ -355,7 +354,7 @@ impl Vision {
         }
     }
 
-    pub fn train_data(&mut self) ->Option<Vec<(GrayImage, bool)>> {
+    pub fn train_data(&mut self) -> Option<Vec<(GrayImage, bool)>> {
         let (_, data) = self.kinect.receive();
 
         let color_img: ImageBuffer<Rgb<_>, _> =
@@ -438,11 +437,11 @@ impl Vision {
                     true
                 };
 
-                let height = bounding_box[3]-bounding_box[2];
+                let height = bounding_box[3] - bounding_box[2];
                 let width = bounding_box[1] - bounding_box[0];
                 let mut image = GrayImage::new(width, height);
                 for (x, y, pixel) in image.enumerate_pixels_mut() {
-                    pixel.0[0] = clahed_img[(x+bounding_box[0],y+bounding_box[2])].0[1];
+                    pixel.0[0] = clahed_img[(x + bounding_box[0], y + bounding_box[2])].0[1];
                 }
                 images.push((image, white_square));
             }
@@ -532,10 +531,12 @@ impl Vision {
                 } else {
                     true
                 };
-                let i1 = values.len() / 10;
-                let i2 = values.len() * 9 / 10;
-                let wrong_color = values[i2] - values[i1] > 120;
-                white_square ^ wrong_color
+
+                // let i1 = values.len() / 10;
+                // let i2 = values.len() * 9 / 10;
+                // let wrong_color = values[i2] - values[i1] > 120;
+                // white_square ^ wrong_color
+                is_white(values, white_square)
             })
             .collect();
 
@@ -576,4 +577,21 @@ impl Vision {
                 .collect(),
         )
     }
+}
+
+pub fn is_white(intensities: &[u8], is_white_square: bool) -> bool {
+    let pixel_weights = vec![
+        5.1749, 5.8789, 5.6493, 1.2865, -0.9649, 0.7283, 1.5670, 2.5091, 2.2012, 1.9340,
+    ];
+    let color_weight = -4.3591;
+    let bias = -7.1719;
+    let indices = linspace(0.0, intensities.len() as f32-1.0, pixel_weights.len()).map(|p| p.round() as usize);
+    let sm: f32 = indices.zip(pixel_weights).map(|(i, w)| intensities[i] as f32*w / 255.0).sum();
+    let sm = sm+color_weight*(is_white_square as i32 as f32)+bias;
+    sm > 0.0
+}
+
+fn linspace(start: f32, end: f32, n: usize) -> impl Iterator<Item = f32> {
+    let step_size = (end-start)/(n as f32-1.0);
+    (0..n).map(move |i| start+i as f32*step_size)
 }

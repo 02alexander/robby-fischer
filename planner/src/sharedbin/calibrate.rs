@@ -135,7 +135,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
                 let new_claw_pos2d = Arm::position_from_angles(theta1, theta2);
                 let new_claw_pos =
                     Vector3::new(new_claw_pos2d[0], arm.claw_pos.y, new_claw_pos2d[1]);
-                arm.smooth_move_claw_to(new_claw_pos);
+                arm.practical_smooth_move_claw_to(new_claw_pos);
                 changed = false;
             }
         }
