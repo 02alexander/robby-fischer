@@ -75,7 +75,7 @@ validation = train_data[-80:]
 train_data = train_data[:-80]
 # features = 
 criterion = nn.MSELoss()
-optimizer = optim.Adam(net.parameters(), lr=0.08, weight_decay=1e-5)
+optimizer = optim.Adam(net.parameters(), lr=0.16, weight_decay=1e-5)
 
 X = torch.tensor(np.array([f for (f, _) in train_data])).float()
 Y = torch.tensor([[label] for (_, label) in train_data]).float()
@@ -83,7 +83,7 @@ Y = torch.tensor([[label] for (_, label) in train_data]).float()
 # in your training loop:
 errors = []
 val_errors = []
-for i in range(1000):
+for i in range(2000):
     mse = 0
     # for (feature, label) in train_data:
     

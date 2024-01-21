@@ -173,9 +173,6 @@ fn main() -> anyhow::Result<()> {
         std::thread::sleep(Duration::from_millis(2000));
         let engine_move = engine.stop_search()?;
 
-        // engine.make_moves(&played_uci_moves).unwrap();
-        // let engine_move = engine.bestmove().unwrap();
-
         println!("{}", engine_move);
         let mv = Uci::from_ascii(engine_move.as_bytes()).unwrap().to_move(&chess_board).unwrap();
         chess_board = chess_board.play(&mv).unwrap();
@@ -205,7 +202,9 @@ fn main() -> anyhow::Result<()> {
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
                 }
+                break;
             }
+            moves_since_cailbration = 0;
         }
 
         moves_since_cailbration += 1;

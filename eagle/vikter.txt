@@ -1,0 +1,6 @@
+0.0
+Parameter containing:
+tensor([[ 8.5662,  8.5470,  4.0244, -2.4667, -2.1006,  2.4410,  1.1536,  2.8003,
+          6.2456,  4.7524, -4.0305]], requires_grad=True)
+Parameter containing:
+tensor([-13.8316], requires_grad=True)

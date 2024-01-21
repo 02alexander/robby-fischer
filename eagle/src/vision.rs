@@ -581,10 +581,10 @@ impl Vision {
 
 pub fn is_white(intensities: &[u8], is_white_square: bool) -> bool {
     let pixel_weights = vec![
-        5.1749, 5.8789, 5.6493, 1.2865, -0.9649, 0.7283, 1.5670, 2.5091, 2.2012, 1.9340,
+        8.5662,  8.5470,  4.0244, -2.4667, -2.1006,  2.4410,  1.1536,  2.8003, 6.2456,  4.7524
     ];
-    let color_weight = -4.3591;
-    let bias = -7.1719;
+    let color_weight = -4.0305;
+    let bias = -13.8316;
     let indices = linspace(0.0, intensities.len() as f32-1.0, pixel_weights.len()).map(|p| p.round() as usize);
     let sm: f32 = indices.zip(pixel_weights).map(|(i, w)| intensities[i] as f32*w / 255.0).sum();
     let sm = sm+color_weight*(is_white_square as i32 as f32)+bias;
