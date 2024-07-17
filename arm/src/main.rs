@@ -166,7 +166,11 @@ where
                     if a2 < 0.0 {
                         a2 += 360.0
                     };
-                    println!("magnets {a1} {a2}");
+                    
+                    println!(
+                        "{}",
+                        Response::Magnets(a1, a2)
+                    );
                 }
                 Command::CalibrateArm => {
                     self.calibrate_arm(delay);

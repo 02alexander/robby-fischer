@@ -12,6 +12,8 @@ pub enum Response {
     Position(f32, f32, f32),
     #[burk(name = "chessbtn")]
     ChessButtonStatus(bool), // Checks if the chess button has been pressed since this command wast last sent. 
+    #[burk(name = "magnets")]
+    Magnets(f32, f32), // Checks if the chess button has been pressed since this command wast last sent. 
   
 }
 

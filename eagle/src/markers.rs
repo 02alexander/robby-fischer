@@ -46,7 +46,7 @@ impl Detector {
             let gray: i32 = chunk.iter().map(|&n| n as i32).sum();
             color_vec.push((gray / 3) as u8);
         }
-        let mat = Mat::from_slice_rows_cols(&color_vec, height, width).unwrap();
+        let mat = Mat::new_rows_cols_with_data(height as i32, width as i32, &color_vec).unwrap();
         
         self.detector
             .detect_markers(&mat, &mut corners, &mut ids, &mut rejected)

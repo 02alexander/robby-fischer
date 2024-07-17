@@ -6,7 +6,8 @@ use freenectrs::freenect::{
     FreenectVideoFormat, FreenectVideoStream,
 };
 use glam::{Mat3, Vec2, Vec3};
-use image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
+#[cfg(feature = "vis")]
+use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
 #[cfg(feature = "vis")]
 use once_cell::sync::Lazy;
 use opencv::{
@@ -19,6 +20,8 @@ use opencv::{
 };
 #[cfg(feature = "vis")]
 use rerun::{components::Position2D, Points2D, RecordingStream};
+
+use opencv::prelude::MatTraitConstManual;
 
 use crate::Detector;
 
@@ -56,8 +59,8 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
         }
 
         let inp_arr =
-            cvvec::Mat::from_slice_rows_cols(&image, KINECT_HEIGHT, KINECT_WIDTH).unwrap();
-        let mut clahed_mat = inp_arr.clone();
+            cvvec::Mat::new_rows_cols_with_data(KINECT_HEIGHT as i32, KINECT_WIDTH as i32, &image).unwrap();
+        let mut clahed_mat = inp_arr.clone_pointee();
         clahe.apply(&inp_arr, &mut clahed_mat).unwrap();
 
         let clahe_grayimg = mat_to_image::<Luma<u8>>(&clahed_mat);
@@ -95,17 +98,18 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
         convert_scale_abs_def(&sobel_mat, &mut scaled_sobel).unwrap();
 
         let threshold = [15.0, 15.0, 50.0][channel];
-        let threshed_mat = cvvec::Mat::from_slice_rows_cols(
-            &(scaled_sobel
-                .iter()
-                .unwrap()
-                .map(|(_, t): (_, u8)| if t as f32 > threshold { 255 } else { 0 })
-                .collect::<Vec<u8>>()),
-            scaled_sobel.rows() as usize,
-            scaled_sobel.cols() as usize,
+        let buf = &(scaled_sobel
+            .iter()
+            .unwrap()
+            .map(|(_, t): (_, u8)| if t as f32 > threshold { 255 } else { 0 })
+            .collect::<Vec<u8>>());
+        let threshed_mat = cvvec::Mat::new_rows_cols_with_data(
+            scaled_sobel.rows() as i32,
+            scaled_sobel.cols() as i32,
+            &buf,
         )
         .unwrap();
-        let threshed_img: GrayImage = mat_to_image(&threshed_mat);
+        let threshed_img: GrayImage = mat_to_image(&threshed_mat.clone_pointee());
 
         for (x, y, pixel) in thresh_img.enumerate_pixels_mut() {
             pixel.0[channel] = threshed_img[(x, y)].0[0];
