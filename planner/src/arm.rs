@@ -1,104 +1,28 @@
 use core::panic;
 use std::{
-    f64::consts::PI, io::{BufRead, BufReader, Error, ErrorKind, Write}, ops, sync::Mutex, time::Duration
+    f64::consts::PI,
+    io::{BufRead, BufReader, Error, ErrorKind, Write},
+    ops,
+    time::Duration,
 };
 
-use k::Node;
 use nalgebra::{Rotation2, Vector2, Vector3};
-use once_cell::sync::Lazy;
-use rerun::{Quaternion, RecordingStream, Rotation3D, Vec3D};
 use robby_fischer::{Command, Response};
-use super::utils::MyIntersperseExt;
 
-use crate::termdev::TerminalDevice;
+use crate::{chess::Piece, termdev::TerminalDevice, visualizer::arm_vis::log_robot_state};
 
 const BOTTOM_ARM_LENGTH: f64 = 0.29;
 const TOP_ARM_LENGTH: f64 = 0.29;
 
-pub const URDF_PATH: &str = "arm.urdf";
-
-pub static CHAIN: Lazy<Mutex<k::Chain<f32>>> = Lazy::new(|| {
-    let chain = k::Chain::<f32>::from_urdf_file(URDF_PATH).unwrap();
-    Mutex::new(chain)
-});
-
 // pub static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
 //     Mutex::new(
-//         rerun::RecordingStreamBuilder::new("RobbyFischer")
-//             .connect()
-//             .unwrap(),
-//     )
-// });
-
-pub const CLAW_CHANGE_DELAY: u64 = 600;
-
-fn get_entity_path(link: &Node<f32>) -> String {
-    let mut ancestors: Vec<_> = link
-        .iter_ancestors()
-        .map(|node| node.link().as_ref().unwrap().name.clone())
-        .collect();
-    ancestors.push(String::from(URDF_PATH));
-    ancestors
-        .into_iter()
-        .rev()
-        .my_intersperse(String::from("/"))
-        .collect()
-}
-
-pub fn log_robot_state(sideways_m: f32, bottom_deg: f32, top_deg: f32, grip_closed: bool) -> Option<()> {
-    // let rec = REC.lock().unwrap();
-    let rec = RecordingStream::thread_local(rerun::StoreKind::Recording)?;
-    let chain = CHAIN.lock().unwrap();
-    let bottom = bottom_deg.to_radians();
-    let top = top_deg.to_radians();
-
-    let mut positions = chain.joint_positions();
-    positions[0] = -(sideways_m-0.2);
-    positions[1] = -(bottom - std::f32::consts::PI/2.0);
-    positions[2] = -(top - std::f32::consts::PI/2.0);
-    positions[3] = -(bottom + top - std::f32::consts::PI);
-    if grip_closed {
-        positions[4] = -0.02;
-        positions[5] = -0.02;
-    } else {
-        positions[4] = 0.0;
-        positions[5] = 0.0;
-    }
-    chain.set_joint_positions(&positions).unwrap();
-
-    chain.update_transforms();
-    chain.update_link_transforms();
-
-    for link_name in chain.iter_links().map(|link| link.name.clone()) {
-        let link = chain.find_link(&link_name).unwrap();
-        let entity_path = get_entity_path(&link);
-        let link_to_world = link.world_transform().unwrap();
-        let link_to_parent = if link_name != "base_link" {
-            let parent = link.parent().unwrap();
-            parent.world_transform().unwrap().inv_mul(&link_to_world)
-        } else {
-            link_to_world
-
-        };
-        let link_to_parent_mat = link_to_parent.to_matrix();
-
-
-        let trans = link_to_parent_mat.column(3);
-        let trans = trans.as_slice();
-        let quat = link_to_parent.rotation.quaternion();
-        let rot = Rotation3D::Quaternion(Quaternion(quat.coords.as_slice().try_into().unwrap()));
-        rec.log(
-            entity_path,
-            &rerun::Transform3D::from_translation_rotation(
-                Vec3D::new(trans[0], trans[1], trans[2]),
-                Rotation3D::Quaternion(Quaternion(quat.coords.as_slice().try_into().unwrap())),
-            ),
-        )
-        .unwrap();
-    }
-    Some(())
-}
-
+    //         rerun::RecordingStreamBuilder::new("RobbyFischer")
+    //             .connect()
+    //             .unwrap(),
+    //     )
+    // });
+    
+pub const CLAW_CHANGE_DELAY: u64 = 700;
 
 pub struct Arm {
     pub claw_pos: Vector3<f64>,
@@ -107,6 +31,7 @@ pub struct Arm {
     /// (0,0,0) is in the middle of the H1 square
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
+    pub grabbed_piece: Option<Piece>,
 }
 
 impl Arm {
@@ -119,11 +44,11 @@ impl Arm {
             translation_offset: Vector3::new(0.0, 0.0, 0.0),
             reader,
             writer,
+            grabbed_piece: None,
         }
     }
 
     pub fn calib(&mut self) -> std::io::Result<()> {
-        self.calib_all_except_sideways()?;
         loop {
             std::thread::sleep(Duration::from_millis(100));
             self.send_command(Command::IsCalibrated)?;
@@ -143,15 +68,19 @@ impl Arm {
             }
             self.send_command(Command::CalibrateArm)?;
         }
+        println!("calibrated sideways!");
+        self.sync_pos()?;
+        self.calib_all_except_sideways()?;
         Ok(())
     }
 
     pub fn calib_all_except_sideways(&mut self) -> std::io::Result<()> {
         self.send_command(Command::CalibrateArm)?;
-        self.move_claw_to(Vector3::new(0.0, 0.0, 0.15))?;
+        let cur_y = self.claw_pos.y;
+        self.move_claw_to(Vector3::new(0.0, cur_y, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
         self.send_command(Command::CalibrateArm)?;
-        self.move_claw_to(Vector3::new(0.0, 0.00, 0.15))?;
+        self.move_claw_to(Vector3::new(0.0, cur_y, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
         self.send_command(Command::CalibrateArm)?;
         std::thread::sleep(Duration::from_millis(100));
@@ -163,12 +92,11 @@ impl Arm {
             self.send_command(Command::Position)?;
             let response = self.get_response()?;
             if let Response::Position(a1, a2, sd) = response {
-                log_robot_state(sd, a1, a2, false);
+                log_robot_state(sd, a1, a2, self.grabbed_piece);
                 let a1 = a1 as f64;
                 let a2 = a2 as f64;
                 let sd = sd as f64;
                 let cord2d = Arm::position_from_angles(a1, a2);
-                println!("{a1} {a2}");
                 self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]) + self.translation_offset;
                 break;
             }
@@ -192,14 +120,11 @@ impl Arm {
         let (a1, a2) = Arm::arm_2d_angles(pos - self.translation_offset);
         let a1 = a1 * 180.0 / core::f64::consts::PI;
         let a2 = a2 * 180.0 / core::f64::consts::PI;
-        // eprintln!("{ba} {ta}");
-
         (a1, a2, (pos - self.translation_offset).y)
     }
 
     pub fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let mut buf: Vec<_> = command.to_string().bytes().collect();
-        // eprintln!("sent: '{}'", String::from_utf8_lossy(&buf));
         buf.push(b'\n');
         self.writer.write_all(&buf)?;
         self.writer.flush()?;
@@ -218,7 +143,9 @@ impl Arm {
                     let e = Error::new(std::io::ErrorKind::WouldBlock, "reading timed out");
                     return Err(e.into());
                 }
-                trimmed.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e))
+                trimmed
+                    .parse()
+                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
             Err(e) => Err(e.into()),
         }
@@ -333,14 +260,14 @@ impl Arm {
     }
 
     pub fn grip(&mut self) -> std::io::Result<()> {
-        std::thread::sleep(Duration::from_millis(CLAW_CHANGE_DELAY));
+        std::thread::sleep(Duration::from_millis(200));
         self.send_command(Command::Grip)?;
         std::thread::sleep(Duration::from_millis(CLAW_CHANGE_DELAY));
         Ok(())
     }
 
     pub fn release(&mut self) -> std::io::Result<()> {
-        std::thread::sleep(Duration::from_millis(CLAW_CHANGE_DELAY));
+        std::thread::sleep(Duration::from_millis(200));
         self.send_command(Command::Release)?;
         std::thread::sleep(Duration::from_millis(CLAW_CHANGE_DELAY));
         Ok(())

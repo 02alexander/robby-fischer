@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use glam::Vec2;
+use rerun::external::glam::Vec2;
 use opencv::{
     core::{no_array, Point2f, Vector},
     objdetect::{

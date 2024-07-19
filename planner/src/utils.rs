@@ -1,6 +1,3 @@
-
-
-
 pub struct MyIntersperse<T, I> {
     iterator: I,
     sep: T,

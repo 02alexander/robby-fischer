@@ -1,13 +1,8 @@
-#[cfg(feature = "vis")]
-use std::sync::Mutex;
-
 use freenectrs::freenect::{
     FreenectContext, FreenectDepthFormat, FreenectDepthStream, FreenectResolution,
     FreenectVideoFormat, FreenectVideoStream,
 };
-use glam::{Mat3, Vec2, Vec3};
 #[cfg(feature = "vis")]
-use once_cell::sync::Lazy;
 use opencv::{
     calib3d::project_points_def,
     core as cvvec,
@@ -16,6 +11,7 @@ use opencv::{
     imgproc::{gaussian_blur_def, sobel},
     prelude::{CLAHETrait, DataType, MatTraitConst},
 };
+use rerun::{external::glam::{Mat3, Vec2, Vec3}, RotationAxisAngle};
 #[cfg(feature = "vis")]
 use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
 #[cfg(feature = "vis")]
@@ -27,15 +23,6 @@ use crate::Detector;
 
 const KINECT_WIDTH: usize = 640;
 const KINECT_HEIGHT: usize = 480;
-
-// #[cfg(feature = "vis")]
-// static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
-//     Mutex::new(
-//         rerun::RecordingStreamBuilder::new("rerun_example_app")
-//             .connect()
-//             .unwrap(),
-//     )
-// });
 
 fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>>
 where
@@ -153,6 +140,10 @@ impl CoordConverter {
         let color_dist_coeffs: Vec<f32> =
             vec![0.2408255, -0.6778162, 0.00130271, 0.00447125, 0.6010201];
         let dist_coeffs: cvvec::Vector<f32> = color_dist_coeffs.clone().into();
+        let image_points: cvvec::Vector<cvvec::Point2d> = markers
+            .into_iter()
+            .map(|p| (p.x as f64, p.y as f64).into())
+            .collect();
 
         let object_points: cvvec::Vector<cvvec::Point3d> = vec![
             (-0.4, -0.4, 0.2).into(),
@@ -162,13 +153,9 @@ impl CoordConverter {
         ]
         .into();
 
-        let image_points: cvvec::Vector<cvvec::Point2d> = markers
-            .into_iter()
-            .map(|p| (p.x as f64, p.y as f64).into())
-            .collect();
-
         let mut rvec: cvvec::Vector<f32> = cvvec::Vector::new();
         let mut tvec: cvvec::Vector<f32> = cvvec::Vector::new();
+
         if !opencv::calib3d::solve_pnp_def(
             &object_points,
             &image_points,
@@ -181,6 +168,38 @@ impl CoordConverter {
         {
             return None;
         }
+        let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+        let translation =
+            0.42 / 8.4 * Vec3::new(tvec.as_slice()[0], tvec.as_slice()[1], tvec.as_slice()[2]);
+        // let translation = Vec3::new(-translation.y, translation.x, translation.z);
+        let rot_vec = Vec3::new(rvec.as_slice()[0], rvec.as_slice()[1], rvec.as_slice()[2]);
+        let rotation = rerun::Rotation3D::AxisAngle(rerun::RotationAxisAngle::new(
+            rot_vec.normalize(),
+            rerun::Angle::Radians(rot_vec.length()),
+        ));
+        rec.log(
+            "a8origin/fluff/pinhole",
+            &rerun::Transform3D::from_translation_rotation(translation, rotation),
+        )
+        .unwrap();
+        rec.log(
+            "a8origin/fluff/pinhole",
+            &rerun::Pinhole::from_focal_length_and_resolution(
+                [color_param.row(0)[0], color_param.row(1)[1]],
+                [640.0, 480.0],
+            ),
+        )
+        .unwrap();
+        rec.log(
+            "a8origin/fluff/",
+            &rerun::Transform3D::from_rotation(
+                rerun::Rotation3D::AxisAngle(rerun::RotationAxisAngle::new(
+                    Vec3::Z,
+                    rerun::Angle::Degrees(90.0),
+                ))
+            ),
+        )
+        .unwrap();
 
         Some(CoordConverter {
             camera_matrix,
@@ -367,9 +386,9 @@ impl Vision {
                 .unwrap();
         #[cfg(feature = "vis")]
         RecordingStream::thread_local(rerun::StoreKind::Recording)
-            .unwrap()            
+            .unwrap()
             .log(
-                "images/image",
+                "a8origin/fluff/pinhole/image",
                 &rerun::Image::try_from(color_img.clone()).unwrap(),
             )
             .unwrap();
@@ -464,7 +483,7 @@ impl Vision {
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
-                "images/image",
+                "a8origin/fluff/pinhole/image",
                 &rerun::Image::try_from(color_img.clone()).unwrap(),
             )
             .unwrap();

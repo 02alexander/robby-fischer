@@ -4,9 +4,12 @@ use crate::{
     moves::{
         bishop_moves, king_moves, knight_moves, pawn_moves, queen_moves, rook_moves, PieceMove,
     },
+    visualizer::BoardVisualizer,
 };
 use lazy_static::lazy_static;
 use nalgebra::Vector3;
+use rerun::{LineStrip3D, LineStrips3D, Position3D, Vec3D};
+use shakmaty::{board, Chess, Position};
 
 lazy_static! {
     static ref HOLDER_POSISIONS: [[Option<Piece>; 8]; 14] = {
@@ -44,6 +47,31 @@ impl Default for Board {
 
 pub fn squares() -> impl Iterator<Item = (usize, usize)> {
     (0..8).flat_map(|rank| (0..14).map(move |file| (file, rank)))
+}
+
+pub fn chess_pos_to_board(pos: Chess) -> Option<Board> {
+    let mut board = Board::default();
+    'outer: for (sq, piece) in pos.board().clone() {
+        let piece = {
+            let role = piece.role.into();
+            let color = match piece.color {
+                shakmaty::Color::Black => Color::Black,
+                shakmaty::Color::White => Color::White,
+            };
+            Piece::new(color, role)
+        };
+        for file in (8..14).rev() {
+            for rank in 0..8 {
+                if board.position[file][rank] == Some(piece) {
+                    board.position[file][rank] = None;
+                    board.position[sq.file() as usize][sq.rank() as usize] = Some(piece);
+                    continue 'outer;
+                }
+            }
+        }
+        return None;
+    }
+    Some(board)
 }
 
 impl Board {
@@ -202,7 +230,6 @@ impl Board {
                     position[kd.0][kd.1] = king;
                     position[rd.0][rd.1] = rook;
 
-
                     return Some((Board { position }, mv));
                 }
             }
@@ -273,35 +300,96 @@ impl Board {
         }
     }
 
-    pub fn move_piece(&mut self, arm: &mut Arm, start: Square, end: Square) -> std::io::Result<()> {
+    pub fn move_along_trajectory(
+        &mut self,
+        arm: &mut Arm,
+        trajectory: &[Vector3<f64>],
+    ) -> anyhow::Result<()> {
+        let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+        let mut strip: Vec<_> = trajectory
+            .iter()
+            .map(|v| Vec3D::new(v[0] as f32, v[1] as f32, v[2] as f32))
+            .collect();
+        strip.insert(
+            0,
+            Vec3D::new(
+                arm.claw_pos.x as f32,
+                arm.claw_pos.y as f32,
+                arm.claw_pos.z as f32,
+            ),
+        );
+        rec.log(
+            "a8origin/trajectory",
+            &rerun::LineStrips3D::new(std::iter::once(strip))
+                .with_radii(std::iter::once(rerun::Radius::new_scene_units(0.002))),
+        )
+        .unwrap();
+
+        for pos in trajectory {
+            arm.practical_smooth_move_claw_to(*pos)?;
+        }
+
+        // rec.log("a8origin/trajectory", &rerun::LineStrips3D::new(&[Vec::<Vec3D>::new()])).unwrap();
+        Ok(())
+    }
+
+    pub fn move_piece(
+        &mut self,
+        arm: &mut Arm,
+        start: Square,
+        end: Square,
+        board_visualizer: &mut BoardVisualizer,
+    ) -> std::io::Result<()> {
         assert!(start.file < 14);
         assert!(start.rank < 8);
         assert!(end.file < 14);
         assert!(end.rank < 8);
         if let Some(piece) = self.position[start.file][start.rank].take() {
+            arm.grabbed_piece = Some(piece);
+            let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+            board_visualizer.log_piece_positions(&rec, &self);
             let role = piece.role;
 
-            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01)?;
-            let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
-            arm.practical_smooth_move_claw_to(
-                Self::real_world_coordinate(start.file as u32, start.rank as u32) + dz,
-            )?;
-            arm.smooth_move_z(role.grip_height())?;
+            // TODO: port into Trajectory struct.
+            let mut trajectory = Vec::new();
+
+            trajectory.push(arm.claw_pos);
+            trajectory.last_mut().unwrap().z = Role::MAX_ROLE_HEIGHT + 0.01;
+            trajectory.push(Self::real_world_coordinate(
+                start.file as u32,
+                start.rank as u32,
+            ));
+            trajectory.last_mut().unwrap().z = Role::MAX_ROLE_HEIGHT + 0.01;
+            trajectory.push(*trajectory.last().unwrap());
+            trajectory.last_mut().unwrap().z = role.grip_height();
+
+            self.move_along_trajectory(arm, &trajectory).unwrap();
             arm.grip()?;
 
             // Moves to end and releases the piece
-            arm.smooth_move_z(role.height() + Role::MAX_ROLE_HEIGHT + 0.01)?;
-            let dz = Vector3::new(0.0, 0.0, arm.claw_pos.z);
-            arm.practical_smooth_move_claw_to(
-                Self::real_world_coordinate(end.file as u32, end.rank as u32) + dz,
-            )?;
-            arm.smooth_move_z(role.grip_height())?;
+
+            trajectory.clear();
+            trajectory.push(arm.claw_pos);
+            trajectory.last_mut().unwrap().z = Role::MAX_ROLE_HEIGHT + 0.01;
+            trajectory.push(Self::real_world_coordinate(
+                end.file as u32,
+                end.rank as u32,
+            ));
+            trajectory.last_mut().unwrap().z = Role::MAX_ROLE_HEIGHT + 0.01;
+            trajectory.push(*trajectory.last().unwrap());
+            trajectory.last_mut().unwrap().z = role.grip_height();
+            self.move_along_trajectory(arm, &trajectory).unwrap();
+
             arm.release()?;
+            arm.grabbed_piece = None;
+            self.position[end.file][end.rank] = Some(piece);
+            board_visualizer.log_piece_positions(&rec, &self);
 
             // Move claw up so it isn't in the way.
-            arm.smooth_move_z(Role::MAX_ROLE_HEIGHT + 0.01)?;
-
-            self.position[end.file][end.rank] = Some(piece);
+            trajectory.clear();
+            trajectory.push(arm.claw_pos);
+            trajectory[0].z = Role::MAX_ROLE_HEIGHT + 0.01;
+            self.move_along_trajectory(arm, &trajectory).unwrap();
         }
         Ok(())
     }

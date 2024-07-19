@@ -2908,6 +2908,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kdtree"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f0a0e9f770b65bac9aad00f97a67ab5c5319effed07f6da385da3c2115e47ba"
+dependencies = [
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4023,8 +4033,10 @@ dependencies = [
  "once_cell",
  "ordered-float",
  "parrot",
+ "rand",
  "rerun",
  "robby-fischer",
+ "rrt",
  "shakmaty",
  "stl_io",
  "tui",
@@ -5850,6 +5862,18 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "vcell",
+]
+
+[[package]]
+name = "rrt"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c1ef35d85ad3a9e66fe5b9ddcdf39184e65cd73ec5a8f4b1254d8cbea6eda6"
+dependencies = [
+ "kdtree",
+ "num-traits",
+ "rand",
+ "tracing",
 ]
 
 [[package]]

@@ -1,7 +1,3 @@
-use std::path::Path;
-
-use anyhow::anyhow;
-use gltf::Gltf;
 use rerun::{Color, Mesh3D, Rgba32};
 
 // /// Assumes the gltf consists of a single mesh with identity transform.

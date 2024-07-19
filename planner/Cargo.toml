@@ -27,6 +27,8 @@ ecolor = "0.28.1"
 stl_io = "0.7.0"
 ordered-float = "4.2.1"
 uuid = "1.10.0"
+rrt = "0.7.0"
+rand = "0.8.5"
 
 # The folder for the binaries can't be called 'bin' or vscode liveshare will stop working.
 # [[bin]]
