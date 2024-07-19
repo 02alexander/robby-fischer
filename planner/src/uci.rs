@@ -108,7 +108,6 @@ impl Uci {
                     if multipv.is_none() {
                         continue;
                     }
-                    dbg!(&line);
                     if multipv.unwrap() == 1 {
                         lines.clear();
                     }

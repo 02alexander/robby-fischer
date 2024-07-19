@@ -7,8 +7,6 @@ use freenectrs::freenect::{
 };
 use glam::{Mat3, Vec2, Vec3};
 #[cfg(feature = "vis")]
-use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
-#[cfg(feature = "vis")]
 use once_cell::sync::Lazy;
 use opencv::{
     calib3d::project_points_def,
@@ -19,6 +17,8 @@ use opencv::{
     prelude::{CLAHETrait, DataType, MatTraitConst},
 };
 #[cfg(feature = "vis")]
+use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
+#[cfg(feature = "vis")]
 use rerun::{components::Position2D, Points2D, RecordingStream};
 
 use opencv::prelude::MatTraitConstManual;
@@ -28,14 +28,14 @@ use crate::Detector;
 const KINECT_WIDTH: usize = 640;
 const KINECT_HEIGHT: usize = 480;
 
-#[cfg(feature = "vis")]
-static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
-    Mutex::new(
-        rerun::RecordingStreamBuilder::new("rerun_example_app")
-            .connect()
-            .unwrap(),
-    )
-});
+// #[cfg(feature = "vis")]
+// static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
+//     Mutex::new(
+//         rerun::RecordingStreamBuilder::new("rerun_example_app")
+//             .connect()
+//             .unwrap(),
+//     )
+// });
 
 fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>>
 where
@@ -59,14 +59,15 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
         }
 
         let inp_arr =
-            cvvec::Mat::new_rows_cols_with_data(KINECT_HEIGHT as i32, KINECT_WIDTH as i32, &image).unwrap();
+            cvvec::Mat::new_rows_cols_with_data(KINECT_HEIGHT as i32, KINECT_WIDTH as i32, &image)
+                .unwrap();
         let mut clahed_mat = inp_arr.clone_pointee();
         clahe.apply(&inp_arr, &mut clahed_mat).unwrap();
 
         let clahe_grayimg = mat_to_image::<Luma<u8>>(&clahed_mat);
 
         #[cfg(feature = "vis")]
-        REC.lock()
+        RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
                 format!("images/clahed{channel}"),
@@ -365,8 +366,8 @@ impl Vision {
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
         #[cfg(feature = "vis")]
-        REC.lock()
-            .unwrap()
+        RecordingStream::thread_local(rerun::StoreKind::Recording)
+            .unwrap()            
             .log(
                 "images/image",
                 &rerun::Image::try_from(color_img.clone()).unwrap(),
@@ -460,7 +461,7 @@ impl Vision {
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
         #[cfg(feature = "vis")]
-        REC.lock()
+        RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
                 "images/image",
@@ -546,7 +547,7 @@ impl Vision {
 
         #[cfg(feature = "vis")]
         {
-            let rec = REC.lock().unwrap();
+            let rec = RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
             // for rank in 0..8 {
             //     for file in 0..8 {
             //         if with_pieces[rank*8+file] {
@@ -585,17 +586,21 @@ impl Vision {
 
 pub fn is_white(intensities: &[u8], is_white_square: bool) -> bool {
     let pixel_weights = vec![
-        8.5662,  8.5470,  4.0244, -2.4667, -2.1006,  2.4410,  1.1536,  2.8003, 6.2456,  4.7524
+        8.5662, 8.5470, 4.0244, -2.4667, -2.1006, 2.4410, 1.1536, 2.8003, 6.2456, 4.7524,
     ];
     let color_weight = -4.0305;
     let bias = -13.8316;
-    let indices = linspace(0.0, intensities.len() as f32-1.0, pixel_weights.len()).map(|p| p.round() as usize);
-    let sm: f32 = indices.zip(pixel_weights).map(|(i, w)| intensities[i] as f32*w / 255.0).sum();
-    let sm = sm+color_weight*(is_white_square as i32 as f32)+bias;
+    let indices = linspace(0.0, intensities.len() as f32 - 1.0, pixel_weights.len())
+        .map(|p| p.round() as usize);
+    let sm: f32 = indices
+        .zip(pixel_weights)
+        .map(|(i, w)| intensities[i] as f32 * w / 255.0)
+        .sum();
+    let sm = sm + color_weight * (is_white_square as i32 as f32) + bias;
     sm > 0.0
 }
 
 fn linspace(start: f32, end: f32, n: usize) -> impl Iterator<Item = f32> {
-    let step_size = (end-start)/(n as f32-1.0);
-    (0..n).map(move |i| start+i as f32*step_size)
+    let step_size = (end - start) / (n as f32 - 1.0);
+    (0..n).map(move |i| start + i as f32 * step_size)
 }

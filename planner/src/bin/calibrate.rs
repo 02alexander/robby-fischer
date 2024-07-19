@@ -67,7 +67,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
     let mut arm = Arm::new(td);
 
     println!("checking calib...");
-    arm.calib();
+    arm.calib()?;
     arm.sync_pos()?;
     println!("calib check done!");
     arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
@@ -77,16 +77,6 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
 
     println!("Getting currenst position...");
     arm.send_command(Command::Queue(90.0, 90.0, 0.0, 1.0))?;
-    // arm.send_command(Command::Position).unwrap();
-    // let response = arm.get_response().unwrap();
-    // if let Response::Position(old_hor, old_theta1, old_theta2) = response {
-    //     theta1 = old_theta1 as f64;
-    //     theta2 = old_theta2 as f64;
-    //     arm.claw_pos.y = old_hor as f64;
-    // } else {
-    //     println!("expected position");
-    // }
-    // println!("Got current position.");
 
     let mut changed = true;
     loop {
@@ -135,7 +125,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
                 let new_claw_pos2d = Arm::position_from_angles(theta1, theta2);
                 let new_claw_pos =
                     Vector3::new(new_claw_pos2d[0], arm.claw_pos.y, new_claw_pos2d[1]);
-                arm.practical_smooth_move_claw_to(new_claw_pos);
+                arm.practical_smooth_move_claw_to(new_claw_pos).unwrap();
                 changed = false;
             }
         }

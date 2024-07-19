@@ -21,6 +21,12 @@ rerun = "0.17.0"
 shakmaty = "0.26.0"
 once_cell = "1.19.0"
 k = "0.31.0"
+gltf = "1.4.1"
+bytes = "1.6.1"
+ecolor = "0.28.1"
+stl_io = "0.7.0"
+ordered-float = "4.2.1"
+uuid = "1.10.0"
 
 # The folder for the binaries can't be called 'bin' or vscode liveshare will stop working.
 # [[bin]]
