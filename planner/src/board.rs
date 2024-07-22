@@ -8,8 +8,8 @@ use crate::{
 };
 use lazy_static::lazy_static;
 use nalgebra::Vector3;
-use rerun::{LineStrip3D, LineStrips3D, Position3D, Vec3D};
-use shakmaty::{board, Chess, Position};
+use rerun::Vec3D;
+use shakmaty::{Chess, Position};
 
 lazy_static! {
     static ref HOLDER_POSISIONS: [[Option<Piece>; 8]; 14] = {

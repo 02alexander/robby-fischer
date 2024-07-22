@@ -11,10 +11,9 @@ pub enum Response {
     #[burk(name = "pos")]
     Position(f32, f32, f32),
     #[burk(name = "chessbtn")]
-    ChessButtonStatus(bool), // Checks if the chess button has been pressed since this command wast last sent. 
+    ChessButtonStatus(bool), // Checks if the chess button has been pressed since this command wast last sent.
     #[burk(name = "magnets")]
-    Magnets(f32, f32), // Checks if the chess button has been pressed since this command wast last sent. 
-  
+    Magnets(f32, f32), // Checks if the chess button has been pressed since this command wast last sent.
 }
 
 #[derive(Burk, Clone, Copy, Debug, PartialEq)]
@@ -46,6 +45,5 @@ pub enum Command {
     #[burk(name = "boot")]
     RestartToBoot,
     #[burk(name = "chessbtn")]
-    ChessButton, // Checks if the chess button has been pressed since this command wast last sent. 
-
+    ChessButton, // Checks if the chess button has been pressed since this command wast last sent.
 }

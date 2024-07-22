@@ -26,7 +26,6 @@ fn main() -> anyhow::Result<()> {
         -Vector3::new(0.1411907894023803, 0.07200000000000005, 0.0243057524245006);
     arm.calib()?;
 
-
     let rec = rerun::RecordingStreamBuilder::new("RobbyFischer")
         .connect()
         .unwrap();
@@ -51,18 +50,23 @@ fn main() -> anyhow::Result<()> {
     //     &board,
     //     &board_visualizer.piece_meshes,
     // ).unwrap();
-    
+
     // let path: Vec<_> = path.iter().map(|v| Vec3D::new(v[0], v[1], v[2])).collect();
     // println!("{:?}", path);
     // rec.log("a8origin/traj", &rerun::LineStrips3D::new(&[path])).unwrap();
-    
+
     init_arm_vis(&RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap());
 
     log_robot_state(0.0, 90.0, 90.0, arm.grabbed_piece);
 
     // arm.practical_smooth_move_claw_to(Vector3::new(0.0, 0.0, 0.2))?;
-    board.move_piece(&mut arm, Square::new(2, 6), Square::new(2, 5), &mut board_visualizer)?;
-    
+    board.move_piece(
+        &mut arm,
+        Square::new(2, 6),
+        Square::new(2, 5),
+        &mut board_visualizer,
+    )?;
+
     loop {
         // std::thread::sleep(Duration::from_millis(200));
 
@@ -81,5 +85,4 @@ fn main() -> anyhow::Result<()> {
         //     }
         // }
     }
-    Ok(())
 }

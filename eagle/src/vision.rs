@@ -15,10 +15,7 @@ use opencv::{
 use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
 #[cfg(feature = "vis")]
 use rerun::{components::Position2D, Points2D, RecordingStream};
-use rerun::{
-    external::glam::{Affine3A, Mat3, Quat, Vec2, Vec3, Vec3A},
-    RotationAxisAngle,
-};
+use rerun::external::glam::{Affine3A, Mat3, Quat, Vec2, Vec3};
 
 use opencv::prelude::MatTraitConstManual;
 
@@ -182,7 +179,7 @@ impl CoordConverter {
             Affine3A::from_rotation_translation(rot.to_scale_rotation_translation().1, translation)
                 .inverse();
         let a8_to_a1 = Affine3A::from_rotation_translation(
-            Quat::from_axis_angle(Vec3::Z, -std::f32::consts::PI/2.0),
+            Quat::from_axis_angle(Vec3::Z, -std::f32::consts::PI / 2.0),
             Vec3::new(0.0, 0.35, 0.0),
         );
         let camera_to_a8 = a8_to_a1.inverse() * camera_to_a1;
@@ -579,11 +576,11 @@ impl Vision {
             rec.log("images/mask", &rerun::Image::try_from(mask).unwrap())
                 .unwrap();
             rec.log(
-                "images/thrseshed image",
+                "images/threshed",
                 &rerun::Image::try_from(threshed_img).unwrap(),
             )
             .unwrap();
-            rec.log("images/image", &rerun::Image::try_from(color_img).unwrap())
+            rec.log("images/rgb", &rerun::Image::try_from(color_img).unwrap())
                 .unwrap();
             rec.log(
                 "images/points",

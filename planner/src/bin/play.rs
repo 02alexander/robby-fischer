@@ -4,22 +4,20 @@ use nix::sys::termios::BaudRate;
 
 use planner::{
     arm::Arm,
-    board::{chess_pos_to_board, Board},
-    chess::{Color, Piece, Square},
+    board::chess_pos_to_board,
+    chess::{Color, Square},
     moves::PieceMove,
     termdev::TerminalDevice,
-    uci::Engine, visualizer::{arm_vis::{init_arm_vis, URDF_PATH}, BoardVisualizer},
+    uci::Engine,
+    visualizer::{
+        arm_vis::init_arm_vis,
+        BoardVisualizer,
+    },
 };
-use rerun::{
-    Angle, RecordingStream, Rotation3D,
-    RotationAxisAngle,
-};
+use rerun::RecordingStream;
 use robby_fischer::{Command, Response};
 use shakmaty::{uci::Uci, Chess, Position};
-use std::{
-    sync::mpsc::sync_channel,
-    time::Duration,
-};
+use std::{sync::mpsc::sync_channel, time::Duration};
 
 fn chess_move_to_move(mv: shakmaty::Move) -> Option<PieceMove> {
     match mv {
@@ -68,11 +66,12 @@ fn main() -> anyhow::Result<()> {
     arm.translation_offset =
         -Vector3::new(0.1411907894023803, 0.07200000000000005, 0.0243057524245006);
 
+    let app_id = "RobbyFischer";
     let rec_id = uuid::Uuid::new_v4().to_string();
     RecordingStream::set_thread_local(
         rerun::StoreKind::Recording,
         Some(
-            rerun::RecordingStreamBuilder::new("RobbyFischer")
+            rerun::RecordingStreamBuilder::new(app_id)
                 .recording_id(&rec_id)
                 .connect()
                 .unwrap(),
@@ -96,11 +95,24 @@ fn main() -> anyhow::Result<()> {
 
     let (vision_sender, vision_recv) = sync_channel(0);
 
+    match std::process::Command::new(format!("../../blueprint.py"))
+        .arg("--recording-id")
+        .arg(&rec_id)
+        .arg("--application-id")
+        .arg(&app_id)
+        .spawn()
+    {
+        Err(e) => {
+            eprintln!("Error creating blueprint {:?}", e);
+        }
+        _ => {}
+    }
+
     let _vision_handle = std::thread::spawn(move || {
         RecordingStream::set_thread_local(
             rerun::StoreKind::Recording,
             Some(
-                rerun::RecordingStreamBuilder::new("RobbyFischer")
+                rerun::RecordingStreamBuilder::new(app_id)
                     .recording_id(&rec_id)
                     .connect()
                     .unwrap(),
@@ -117,7 +129,6 @@ fn main() -> anyhow::Result<()> {
     board_visualizer.log_piece_positions(&rec, &board);
 
     arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15))?;
-    // arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.0, 0.15))?;
 
     println!("waiting for button...");
 

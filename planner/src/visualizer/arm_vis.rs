@@ -5,7 +5,6 @@ use rerun::{Angle, Quaternion, Rotation3D, RotationAxisAngle, Vec3D};
 
 use crate::{chess::Piece, utils::MyIntersperseExt};
 
-
 pub const URDF_PATH: &str = "arm.urdf";
 
 pub static CHAIN: Lazy<Mutex<k::Chain<f32>>> = Lazy::new(|| {
@@ -36,7 +35,6 @@ pub fn init_arm_vis(rec: &rerun::RecordingStream) {
         ),
     )
     .unwrap();
-
 }
 
 pub fn log_robot_state(

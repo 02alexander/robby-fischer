@@ -13,7 +13,7 @@ use alloc::{
     string::{String, ToString},
 };
 use cortex_m::delay::Delay;
-use debugless_unwrap::{DebuglessUnwrap};
+use debugless_unwrap::DebuglessUnwrap;
 use embedded_hal::{blocking::delay::DelayMs, blocking::i2c, digital::v2::InputPin, PwmPin};
 use fugit::RateExtU32;
 use hardware::read_byte;
@@ -166,11 +166,8 @@ where
                     if a2 < 0.0 {
                         a2 += 360.0
                     };
-                    
-                    println!(
-                        "{}",
-                        Response::Magnets(a1, a2)
-                    );
+
+                    println!("{}", Response::Magnets(a1, a2));
                 }
                 Command::CalibrateArm => {
                     self.calibrate_arm(delay);
@@ -250,7 +247,7 @@ where
     }
 
     fn check_queue(&mut self) {
-        if !self.movement_buffer.is_empty() && self.is_in_position_margin(3){
+        if !self.movement_buffer.is_empty() && self.is_in_position_margin(3) {
             let (a1, a2, sd, speed_scale_factor) = self.movement_buffer.pop_front().unwrap();
             let speed_scale_factor = (1.0_f32).min(speed_scale_factor);
             let max_time = ((libm::fabsf(self.bottom_arm_stepper.get_angle() - a1)

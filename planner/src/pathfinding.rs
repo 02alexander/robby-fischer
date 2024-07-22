@@ -21,7 +21,8 @@ fn is_free(
         for rank in 0..8 {
             if let Some(piece) = board.position[file][rank] {
                 let mut piece_bb = piece_size_info.get(&piece).unwrap().bounding_box;
-                piece_bb.center = piece_bb.center * 0.001 + board_to_real_cord(Square::new(file, rank));
+                piece_bb.center =
+                    piece_bb.center * 0.001 + board_to_real_cord(Square::new(file, rank));
                 piece_bb.half_size = piece_bb.half_size * 0.001;
                 if bounding_box.intersects(&piece_bb) {
                     return false;
@@ -45,7 +46,12 @@ pub fn find_path(
         &[start[0], start[1], start[2]],
         &[end[0], end[1], end[2]],
         |p| {
-            is_free(Vec3::new(p[0], p[1], p[2]), bounding_box, board, piece_size_info)
+            is_free(
+                Vec3::new(p[0], p[1], p[2]),
+                bounding_box,
+                board,
+                piece_size_info,
+            )
         },
         || {
             let between = Uniform::new(-0.01, 0.2);
@@ -59,10 +65,22 @@ pub fn find_path(
         },
         0.01,
         1000,
-    ).map_err(|e| anyhow::anyhow!(e))?;
+    )
+    .map_err(|e| anyhow::anyhow!(e))?;
 
-    let tries = if path.len() >= 14 { path.len()-10 } else { 0 };
-    smooth_path(&mut path, |p| is_free(Vec3::new(p[0], p[1], p[2]), bounding_box, board, piece_size_info), 0.001, 10);
-    
+    smooth_path(
+        &mut path,
+        |p| {
+            is_free(
+                Vec3::new(p[0], p[1], p[2]),
+                bounding_box,
+                board,
+                piece_size_info,
+            )
+        },
+        0.001,
+        10,
+    );
+
     Ok(path.iter().map(|p| Vec3::new(p[0], p[1], p[2])).collect())
 }

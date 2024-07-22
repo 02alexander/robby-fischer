@@ -1,11 +1,18 @@
-use std::{collections::HashMap, fs::{read_dir, File}, path::Path};
+use std::{
+    collections::HashMap,
+    fs::{read_dir, File},
+    path::Path,
+};
 
 use nalgebra::Vector3;
 use ordered_float::OrderedFloat;
 use rerun::{datatypes::UVec3D, external::glam::Vec3, Mesh3D, Scale3D, Vec3D};
 use stl_io::IndexedMesh;
 
-use crate::{board::Board, chess::{Color, Piece, Role, Square}};
+use crate::{
+    board::Board,
+    chess::{Color, Piece, Role, Square},
+};
 
 use super::mesh_conversion::{load_gltf, log_node, GltfNode};
 
@@ -58,8 +65,8 @@ impl BoundingBox {
                 .max()
                 .unwrap()
                 .0;
-            center[i] = (mx+mn)/2.0;
-            half_size[i] = (mx-mn)/2.0;
+            center[i] = (mx + mn) / 2.0;
+            half_size[i] = (mx - mn) / 2.0;
         }
 
         BoundingBox { center, half_size }
@@ -70,25 +77,32 @@ impl BoundingBox {
         let half_size: Vec3D = self.half_size.into();
         rec.log(
             base_path,
-            &rerun::Boxes3D::from_centers_and_half_sizes(&[center], &[half_size]).with_colors(std::iter::once(rerun::components::Color::from_rgb(150, 150, 150))),
+            &rerun::Boxes3D::from_centers_and_half_sizes(&[center], &[half_size]).with_colors(
+                std::iter::once(rerun::components::Color::from_rgb(150, 150, 150)),
+            ),
         )
         .unwrap();
     }
 
     pub fn intersects(&self, other: &BoundingBox) -> bool {
         for i in 0..3 {
-            let lhs_range = (OrderedFloat(self.center[i]-self.half_size[i]), OrderedFloat(self.center[i]+self.half_size[i]));
-            let rhs_range = (OrderedFloat(other.center[i]-other.half_size[i]), OrderedFloat(other.center[i]+other.half_size[i]));
+            let lhs_range = (
+                OrderedFloat(self.center[i] - self.half_size[i]),
+                OrderedFloat(self.center[i] + self.half_size[i]),
+            );
+            let rhs_range = (
+                OrderedFloat(other.center[i] - other.half_size[i]),
+                OrderedFloat(other.center[i] + other.half_size[i]),
+            );
             let mut ranges = [lhs_range, rhs_range];
             ranges.sort();
-
 
             let low_range = ranges[0];
             let high_range = ranges[1];
 
             if !(low_range.1 > high_range.0) {
                 return false;
-            } 
+            }
         }
         true
     }
@@ -210,8 +224,16 @@ impl BoardVisualizer {
                     let piece_model_info = self.piece_meshes.get(&piece).unwrap();
                     piece_model_info.log(rec, &format!("a8origin/pieces/{file}/{rank}"));
                 } else {
-                    rec.log(format!("a8origin/pieces/{file}/{rank}/mesh"), &rerun::Clear::flat()).unwrap();
-                    rec.log(format!("a8origin/pieces/{file}/{rank}/bounding_box"), &rerun::Clear::flat()).unwrap();
+                    rec.log(
+                        format!("a8origin/pieces/{file}/{rank}/mesh"),
+                        &rerun::Clear::flat(),
+                    )
+                    .unwrap();
+                    rec.log(
+                        format!("a8origin/pieces/{file}/{rank}/bounding_box"),
+                        &rerun::Clear::flat(),
+                    )
+                    .unwrap();
                 }
             }
         }

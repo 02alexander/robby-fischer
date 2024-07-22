@@ -16,12 +16,12 @@ const TOP_ARM_LENGTH: f64 = 0.29;
 
 // pub static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
 //     Mutex::new(
-    //         rerun::RecordingStreamBuilder::new("RobbyFischer")
-    //             .connect()
-    //             .unwrap(),
-    //     )
-    // });
-    
+//         rerun::RecordingStreamBuilder::new("RobbyFischer")
+//             .connect()
+//             .unwrap(),
+//     )
+// });
+
 pub const CLAW_CHANGE_DELAY: u64 = 700;
 
 pub struct Arm {
