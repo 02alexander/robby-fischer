@@ -11,11 +11,14 @@ use opencv::{
     imgproc::{gaussian_blur_def, sobel},
     prelude::{CLAHETrait, DataType, MatTraitConst},
 };
-use rerun::{external::glam::{Mat3, Vec2, Vec3}, RotationAxisAngle};
 #[cfg(feature = "vis")]
 use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
 #[cfg(feature = "vis")]
 use rerun::{components::Position2D, Points2D, RecordingStream};
+use rerun::{
+    external::glam::{Affine3A, Mat3, Quat, Vec2, Vec3, Vec3A},
+    RotationAxisAngle,
+};
 
 use opencv::prelude::MatTraitConstManual;
 
@@ -169,34 +172,32 @@ impl CoordConverter {
             return None;
         }
         let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+
+        let rot_vec = Vec3::new(rvec.as_slice()[0], rvec.as_slice()[1], rvec.as_slice()[2]);
+        let rot = Affine3A::from_axis_angle(rot_vec.normalize(), rot_vec.length());
         let translation =
             0.42 / 8.4 * Vec3::new(tvec.as_slice()[0], tvec.as_slice()[1], tvec.as_slice()[2]);
-        // let translation = Vec3::new(-translation.y, translation.x, translation.z);
-        let rot_vec = Vec3::new(rvec.as_slice()[0], rvec.as_slice()[1], rvec.as_slice()[2]);
-        let rotation = rerun::Rotation3D::AxisAngle(rerun::RotationAxisAngle::new(
-            rot_vec.normalize(),
-            rerun::Angle::Radians(rot_vec.length()),
-        ));
+
+        let camera_to_a1 =
+            Affine3A::from_rotation_translation(rot.to_scale_rotation_translation().1, translation)
+                .inverse();
+        let a8_to_a1 = Affine3A::from_rotation_translation(
+            Quat::from_axis_angle(Vec3::Z, -std::f32::consts::PI/2.0),
+            Vec3::new(0.0, 0.35, 0.0),
+        );
+        let camera_to_a8 = a8_to_a1.inverse() * camera_to_a1;
+
+        let (_scale, rotation, translation) = camera_to_a8.to_scale_rotation_translation();
         rec.log(
-            "a8origin/fluff/pinhole",
+            "a8origin/pinhole",
             &rerun::Transform3D::from_translation_rotation(translation, rotation),
         )
         .unwrap();
         rec.log(
-            "a8origin/fluff/pinhole",
+            "a8origin/pinhole",
             &rerun::Pinhole::from_focal_length_and_resolution(
                 [color_param.row(0)[0], color_param.row(1)[1]],
                 [640.0, 480.0],
-            ),
-        )
-        .unwrap();
-        rec.log(
-            "a8origin/fluff/",
-            &rerun::Transform3D::from_rotation(
-                rerun::Rotation3D::AxisAngle(rerun::RotationAxisAngle::new(
-                    Vec3::Z,
-                    rerun::Angle::Degrees(90.0),
-                ))
             ),
         )
         .unwrap();
@@ -388,7 +389,7 @@ impl Vision {
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
-                "a8origin/fluff/pinhole/image",
+                "a8origin/pinhole/image",
                 &rerun::Image::try_from(color_img.clone()).unwrap(),
             )
             .unwrap();
@@ -483,7 +484,7 @@ impl Vision {
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
-                "a8origin/fluff/pinhole/image",
+                "a8origin/pinhole/image",
                 &rerun::Image::try_from(color_img.clone()).unwrap(),
             )
             .unwrap();
