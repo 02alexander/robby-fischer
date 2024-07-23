@@ -1,4 +1,4 @@
-use eagle::Vision;
+use eagle::{vis_camera, Vision};
 use nalgebra::Vector3;
 use nix::sys::termios::BaudRate;
 
@@ -68,14 +68,13 @@ fn main() -> anyhow::Result<()> {
 
     let app_id = "RobbyFischer";
     let rec_id = uuid::Uuid::new_v4().to_string();
+    let rec = rerun::RecordingStreamBuilder::new(app_id)
+            .recording_id(&rec_id)
+            .connect()
+            .unwrap();
     RecordingStream::set_thread_local(
         rerun::StoreKind::Recording,
-        Some(
-            rerun::RecordingStreamBuilder::new(app_id)
-                .recording_id(&rec_id)
-                .connect()
-                .unwrap(),
-        ),
+        Some(rec)
     );
     let rec = RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
 
@@ -108,20 +107,25 @@ fn main() -> anyhow::Result<()> {
         _ => {}
     }
 
+    let to_be_moved_rec = rec.clone();
     let _vision_handle = std::thread::spawn(move || {
         RecordingStream::set_thread_local(
             rerun::StoreKind::Recording,
-            Some(
-                rerun::RecordingStreamBuilder::new(app_id)
-                    .recording_id(&rec_id)
-                    .connect()
-                    .unwrap(),
-            ),
+            Some(to_be_moved_rec),
         );
         let mut vision = Vision::new();
         loop {
             let _ = vision_sender.try_send(vision.pieces());
         }
+    });
+
+    let to_be_moved_rec = rec.clone();
+    let _cam_vis = std::thread::spawn(move || {
+        RecordingStream::set_thread_local(
+            rerun::StoreKind::Recording,
+            Some(to_be_moved_rec)
+        );
+        vis_camera("external_camera", 2);
     });
 
     let mut chess_board = Chess::default();

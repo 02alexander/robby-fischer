@@ -2,7 +2,6 @@ use freenectrs::freenect::{
     FreenectContext, FreenectDepthFormat, FreenectDepthStream, FreenectResolution,
     FreenectVideoFormat, FreenectVideoStream,
 };
-#[cfg(feature = "vis")]
 use opencv::{
     calib3d::project_points_def,
     core as cvvec,
@@ -11,9 +10,7 @@ use opencv::{
     imgproc::{gaussian_blur_def, sobel},
     prelude::{CLAHETrait, DataType, MatTraitConst},
 };
-#[cfg(feature = "vis")]
 use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
-#[cfg(feature = "vis")]
 use rerun::{components::Position2D, Points2D, RecordingStream};
 use rerun::external::glam::{Affine3A, Mat3, Quat, Vec2, Vec3};
 
@@ -24,7 +21,7 @@ use crate::Detector;
 const KINECT_WIDTH: usize = 640;
 const KINECT_HEIGHT: usize = 480;
 
-fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>>
+pub fn mat_to_image<P>(inp_arr: &cvvec::Mat) -> ImageBuffer<P, Vec<P::Subpixel>>
 where
     P: Pixel,
     P::Subpixel: DataType,
@@ -53,7 +50,7 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
 
         let clahe_grayimg = mat_to_image::<Luma<u8>>(&clahed_mat);
 
-        #[cfg(feature = "vis")]
+    
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
@@ -382,7 +379,7 @@ impl Vision {
         let color_img: ImageBuffer<Rgb<_>, _> =
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
-        #[cfg(feature = "vis")]
+    
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
@@ -402,7 +399,7 @@ impl Vision {
         });
         mask.iter_mut().for_each(|p| *p = 0);
 
-        #[cfg(feature = "vis")]
+    
         let mut square_mid_points: Vec<Position2D> = Vec::new();
 
         let mut square_intensities = Vec::new();
@@ -422,7 +419,7 @@ impl Vision {
                     0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
 
                 let _ = &mid_point;
-                #[cfg(feature = "vis")]
+            
                 square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 
                 square_intensities.push(intensities);
@@ -442,7 +439,7 @@ impl Vision {
             self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
 
             let _ = &mid_point;
-            #[cfg(feature = "vis")]
+        
             square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 
             square_intensities.push(intensities);
@@ -477,7 +474,7 @@ impl Vision {
         let color_img: ImageBuffer<Rgb<_>, _> =
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
-        #[cfg(feature = "vis")]
+    
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
@@ -497,7 +494,7 @@ impl Vision {
         });
         mask.iter_mut().for_each(|p| *p = 0);
 
-        #[cfg(feature = "vis")]
+    
         let mut square_mid_points: Vec<Position2D> = Vec::new();
 
         let mut square_intensities = Vec::new();
@@ -515,7 +512,7 @@ impl Vision {
                     0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
 
                 let _ = &mid_point;
-                #[cfg(feature = "vis")]
+            
                 square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 
                 square_intensities.push(intensities);
@@ -534,7 +531,7 @@ impl Vision {
             self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
 
             let _ = &mid_point;
-            #[cfg(feature = "vis")]
+        
             square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
 
             square_intensities.push(intensities);
@@ -562,7 +559,7 @@ impl Vision {
             })
             .collect();
 
-        #[cfg(feature = "vis")]
+    
         {
             let rec = RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
             // for rank in 0..8 {
