@@ -6,12 +6,10 @@ use opencv::prelude::MatTraitConst;
 use opencv::prelude::MatTraitConstManual;
 
 pub fn vis_camera(entity_path: &str, device_id: u32) {
-    // ... (previous code)
     let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
     let mut cam = videoio::VideoCapture::new(device_id as i32, videoio::CAP_ANY)
         .expect("Failed to get video capture");
-    let mut frame = &mut opencv::core::Mat::default();
-    // let mut buf = Vector::new();
+    let mut frame = opencv::core::Mat::default();
     loop {
         cam.read(&mut frame).unwrap();
         let data: Vec<_> = frame

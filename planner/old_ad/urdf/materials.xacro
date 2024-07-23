@@ -13,5 +13,8 @@
 <material name="acetal_resin_white">
   <color rgba="0.9725490196078431 0.9686274509803922 0.9294117647058824 1.0"/>
 </material>
+<material name="nylon_12_with_formlabs_fuse_1_3d_printer">
+  <color rgba="0.24705882352941178 0.24705882352941178 0.24705882352941178 1.0"/>
+</material>
 
 </robot>
