@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <robot name="arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-<xacro:include filename="$(find arm_description)/urdf/materials.xacro" />
-<xacro:include filename="$(find arm_description)/urdf/arm.trans" />
+<xacro:include filename="materials.xacro" />
+<xacro:include filename="arm.trans" />
 <link name="base_link">
   <inertial>
     <origin xyz="-0.009999999999999943 -0.30000000000000016 -0.08999999999999994" rpy="0 0 0"/>
@@ -12,14 +12,14 @@
   <visual>
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="steel_satin"/>
   </visual>
   <collision>
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -33,14 +33,14 @@
   <visual>
     <origin xyz="0.01 0.0005 0.077" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/glid_platta_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/glid_platta_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.01 0.0005 0.077" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/glid_platta_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/glid_platta_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -54,14 +54,14 @@
   <visual>
     <origin xyz="0.04 0.0955 0.061" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/bas_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/bas_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.04 0.0955 0.061" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/bas_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/bas_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -75,14 +75,14 @@
   <visual>
     <origin xyz="0.025 0.006 0.0565" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/gemensam_vagg_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/gemensam_vagg_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.025 0.006 0.0565" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/gemensam_vagg_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/gemensam_vagg_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -96,14 +96,14 @@
   <visual>
     <origin xyz="0.0175 0.0083 0.016" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/botten_snurr_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/botten_snurr_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.0175 0.0083 0.016" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/botten_snurr_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/botten_snurr_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -117,14 +117,14 @@
   <visual>
     <origin xyz="0.0265 0.0173 0.001" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/kortarm_kopia_Mirror__1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/kortarm_kopia_Mirror__1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.0265 0.0173 0.001" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/kortarm_kopia_Mirror__1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/kortarm_kopia_Mirror__1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -138,14 +138,14 @@
   <visual>
     <origin xyz="0.0085 0.0673 0.001" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/kortarm_kopia_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/kortarm_kopia_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.0085 0.0673 0.001" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/kortarm_kopia_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/kortarm_kopia_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -159,14 +159,14 @@
   <visual>
     <origin xyz="0.01 0.08 0.0565" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/snurr_hallare_stepper_sida_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/snurr_hallare_stepper_sida_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="acetal_resin_white"/>
   </visual>
   <collision>
     <origin xyz="0.01 0.08 0.0565" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/snurr_hallare_stepper_sida_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/snurr_hallare_stepper_sida_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -180,14 +180,14 @@
   <visual>
     <origin xyz="0.025 0.0633 -0.244" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/led_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/led_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.025 0.0633 -0.244" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/led_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/led_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -201,14 +201,14 @@
   <visual>
     <origin xyz="0.3074 0.0167 -0.273879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/mount_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/mount_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.3074 0.0167 -0.273879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/mount_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/mount_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -222,14 +222,14 @@
   <visual>
     <origin xyz="0.0175 0.0257 -0.274" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/led_axel_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/led_axel_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.0175 0.0257 -0.274" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/led_axel_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/led_axel_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -243,14 +243,14 @@
   <visual>
     <origin xyz="0.019 0.0127 -0.277708" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/lang_arm_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/lang_arm_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.019 0.0127 -0.277708" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/lang_arm_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/lang_arm_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -264,14 +264,14 @@
   <visual>
     <origin xyz="0.019 0.0727 -0.277708" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/lang_arm_Mirror__1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/lang_arm_Mirror__1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.019 0.0727 -0.277708" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/lang_arm_Mirror__1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/lang_arm_Mirror__1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -285,14 +285,14 @@
   <visual>
     <origin xyz="0.3114 0.0517 -0.283879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/ram_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/ram_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.3114 0.0517 -0.283879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/ram_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/ram_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -306,14 +306,14 @@
   <visual>
     <origin xyz="0.029306 0.0026 -0.005" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/Component18_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/Component18_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.029306 0.0026 -0.005" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/Component18_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/Component18_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -327,14 +327,14 @@
   <visual>
     <origin xyz="0.3333 0.015006 -0.261879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/hake_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/hake_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.3333 0.015006 -0.261879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/hake_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/hake_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
@@ -348,14 +348,14 @@
   <visual>
     <origin xyz="0.3383 0.073006 -0.261879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/hake2_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/hake2_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
     <material name="abs_white"/>
   </visual>
   <collision>
     <origin xyz="0.3383 0.073006 -0.261879" rpy="0 0 0"/>
     <geometry>
-      <mesh filename="package://arm_description/meshes/hake2_1.stl" scale="0.001 0.001 0.001"/>
+      <mesh filename="../meshes/hake2_1.stl" scale="0.001 0.001 0.001"/>
     </geometry>
   </collision>
 </link>
