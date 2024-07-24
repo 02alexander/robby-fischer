@@ -1,26 +1,5 @@
 use rerun::{Color, Mesh3D, Rgba32};
 
-// /// Assumes the gltf consists of a single mesh with identity transform.
-// pub fn load_gltf_as_mesh3d(path: impl AsRef<Path>) -> anyhow::Result<rerun::Mesh3D> {
-//     let (doc, buffers, _) = gltf::import_slice(bytes::Bytes::from(std::fs::read(path)?))?;
-//     let nodes = load_gltf(&doc, &buffers);
-
-//     // let mut children = nodes.into_iter().next().unwrap().children;
-//     // let mut primitives = children.remove(0).primitives;
-//     // let primitive = primitives.remove(0);
-//     // Ok(rerun::Mesh3D::from(primitive))
-
-//     let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
-//     for node in nodes {
-//         println!("nodes");
-//         dbg!(node.primitives.len());
-//         dbg!(node.children.len());
-//         log_node(&rec, node)?;
-//     }
-//     Err(anyhow!("error"))
-
-// }
-
 // Declare how to turn a glTF primitive into a Rerun component (`Mesh3D`).
 #[allow(clippy::fallible_impl_from)]
 impl From<GltfPrimitive> for Mesh3D {

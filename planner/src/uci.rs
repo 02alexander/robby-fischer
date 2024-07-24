@@ -148,6 +148,9 @@ impl Engine {
         let mut moves = self.uci.stop_search()?;
         moves.sort_by_key(|&(_, score)| Reverse(score));
 
+        // temporary for video.
+        self.trying_to_win = true;
+
         if moves[0].1 < self.gambit_range.end {
             self.trying_to_win = true;
         }

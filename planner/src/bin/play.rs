@@ -1,5 +1,8 @@
-use eagle::{vis_camera, Vision};
-use nalgebra::Vector3;
+#[cfg(feature = "vis")]
+use eagle::vis_camera;
+
+use eagle::Vision;
+use glam::Vec3;
 use nix::sys::termios::BaudRate;
 
 use planner::{
@@ -9,12 +12,13 @@ use planner::{
     moves::PieceMove,
     termdev::TerminalDevice,
     uci::Engine,
-    visualizer::{
-        arm_vis::init_arm_vis,
-        BoardVisualizer,
-    },
 };
+
+#[cfg(feature = "vis")]
+use planner::visualizer::{arm_vis::init_arm_vis, BOARD_VISUALIZER};
+#[cfg(feature = "vis")]
 use rerun::RecordingStream;
+
 use robby_fischer::{Command, Response};
 use shakmaty::{uci::Uci, Chess, Position};
 use std::{sync::mpsc::sync_channel, time::Duration};
@@ -62,21 +66,37 @@ fn main() -> anyhow::Result<()> {
     td.set_timeout(1)?;
     let mut arm = Arm::new(td);
 
-    // arm.translation_offset = Vector3::new(-0.1383520286271571, -0.015, -0.015553090130407);
+    // arm.translation_offset = Vec3::new(-0.1383520286271571, -0.015, -0.015553090130407);
     arm.translation_offset =
-        -Vector3::new(0.1411907894023803, 0.07200000000000005, 0.0243057524245006);
+        -Vec3::new(0.1411907894023803, 0.02200000000000005, 0.0243057524245006);
 
     let app_id = "RobbyFischer";
     let rec_id = uuid::Uuid::new_v4().to_string();
+    #[cfg(feature = "vis")]
     let rec = rerun::RecordingStreamBuilder::new(app_id)
-            .recording_id(&rec_id)
-            .connect()
-            .unwrap();
-    RecordingStream::set_thread_local(
-        rerun::StoreKind::Recording,
-        Some(rec)
-    );
-    let rec = RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+        .recording_id(&rec_id)
+        .connect()
+        .unwrap();
+    #[cfg(feature = "vis")]
+    {
+        RecordingStream::set_thread_local(rerun::StoreKind::Recording, Some(rec.clone()));
+
+        // Creates and logs blueprint.
+        match std::process::Command::new(format!("../../blueprint.py"))
+            .arg("--recording-id")
+            .arg(&rec_id)
+            .arg("--application-id")
+            .arg(&app_id)
+            .spawn()
+        {
+            Err(e) => {
+                eprintln!("Error creating blueprint {:?}", e);
+            }
+            _ => {}
+        }
+    }
+    #[cfg(feature = "vis")]
+    init_arm_vis(&rec);
 
     let mut engine = Engine::new("stockfish", &[])?;
     let mut played_uci_moves = Vec::new();
@@ -86,53 +106,38 @@ fn main() -> anyhow::Result<()> {
 
     arm.release().unwrap();
     arm.sync_pos().unwrap();
-    // arm.move_claw_to(Vector3::new(0.0, 0.45, 0.2));
-
-    init_arm_vis(&rec);
-    let mut board_visualizer = BoardVisualizer::new("pieces", arm.translation_offset);
-    board_visualizer.init_logging(&rec);
+    // arm.move_claw_to(Vec3::new(0.0, 0.45, 0.2));
 
     let (vision_sender, vision_recv) = sync_channel(0);
 
-    match std::process::Command::new(format!("../../blueprint.py"))
-        .arg("--recording-id")
-        .arg(&rec_id)
-        .arg("--application-id")
-        .arg(&app_id)
-        .spawn()
-    {
-        Err(e) => {
-            eprintln!("Error creating blueprint {:?}", e);
-        }
-        _ => {}
-    }
-
+    #[cfg(feature = "vis")]
     let to_be_moved_rec = rec.clone();
     let _vision_handle = std::thread::spawn(move || {
-        RecordingStream::set_thread_local(
-            rerun::StoreKind::Recording,
-            Some(to_be_moved_rec),
-        );
+        #[cfg(feature = "vis")]
+        RecordingStream::set_thread_local(rerun::StoreKind::Recording, Some(to_be_moved_rec));
+
         let mut vision = Vision::new();
         loop {
             let _ = vision_sender.try_send(vision.pieces());
         }
     });
 
-    let to_be_moved_rec = rec.clone();
-    let _cam_vis = std::thread::spawn(move || {
-        RecordingStream::set_thread_local(
-            rerun::StoreKind::Recording,
-            Some(to_be_moved_rec)
-        );
-        vis_camera("external_camera", 2);
-    });
+    #[cfg(feature = "vis")]
+    {
+        let to_be_moved_rec = rec.clone();
+        let _cam_vis = std::thread::spawn(move || {
+            RecordingStream::set_thread_local(rerun::StoreKind::Recording, Some(to_be_moved_rec));
+            vis_camera("external_camera", 0);
+        });
+    }
 
     let mut chess_board = Chess::default();
     let mut board = chess_pos_to_board(chess_board.clone()).unwrap();
-    board_visualizer.log_piece_positions(&rec, &board);
 
-    arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15))?;
+    #[cfg(feature = "vis")]
+    BOARD_VISUALIZER.log_piece_positions(&board);
+
+    arm.practical_smooth_move_claw_to(Vec3::new(0.1, 0.48, 0.15))?;
 
     println!("waiting for button...");
 
@@ -183,7 +188,9 @@ fn main() -> anyhow::Result<()> {
             println!("illegal moves");
             continue;
         };
-        board_visualizer.log_piece_positions(&rec, &new_board);
+
+        #[cfg(feature = "vis")]
+        BOARD_VISUALIZER.log_piece_positions(&new_board);
 
         if let Err(e) = arm.smooth_move_z(0.2) {
             dbg!(e);
@@ -195,7 +202,7 @@ fn main() -> anyhow::Result<()> {
         engine.start_search(&played_uci_moves)?;
         let target = chess_pos_to_board(chess_board.clone()).unwrap();
         for (src, dst) in board.diff(&target) {
-            if let Err(e) = board.move_piece(&mut arm, src, dst, &mut board_visualizer) {
+            if let Err(e) = board.move_piece(&mut arm, src, dst) {
                 dbg!(e);
                 continue;
             }
@@ -214,15 +221,17 @@ fn main() -> anyhow::Result<()> {
 
         let target = chess_pos_to_board(chess_board.clone()).unwrap();
         for (src, dst) in board.diff(&target) {
-            if let Err(e) = board.move_piece(&mut arm, src, dst, &mut board_visualizer) {
+            if let Err(e) = board.move_piece(&mut arm, src, dst) {
                 dbg!(e);
                 continue;
             }
         }
         println!("{}", board);
-        board_visualizer.log_piece_positions(&rec, &board);
 
-        if let Err(e) = arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15)) {
+        #[cfg(feature = "vis")]
+        BOARD_VISUALIZER.log_piece_positions(&board);
+
+        if let Err(e) = arm.practical_smooth_move_claw_to(Vec3::new(0.1, 0.48, 0.15)) {
             dbg!(e);
             continue;
         }
@@ -232,7 +241,7 @@ fn main() -> anyhow::Result<()> {
                 continue;
             }
             loop {
-                if let Err(e) = arm.practical_smooth_move_claw_to(Vector3::new(0.1, 0.48, 0.15)) {
+                if let Err(e) = arm.practical_smooth_move_claw_to(Vec3::new(0.1, 0.48, 0.15)) {
                     dbg!(e);
                     std::thread::sleep(Duration::from_millis(100));
                     continue;

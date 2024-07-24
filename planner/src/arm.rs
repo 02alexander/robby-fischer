@@ -1,18 +1,23 @@
 use core::panic;
 use std::{
-    f64::consts::PI,
+    f32::consts::PI,
     io::{BufRead, BufReader, Error, ErrorKind, Write},
     ops,
     time::Duration,
 };
 
-use nalgebra::{Rotation2, Vector2, Vector3};
+use glam::{Affine2, Vec2, Vec3};
 use robby_fischer::{Command, Response};
 
-use crate::{chess::Piece, termdev::TerminalDevice, visualizer::arm_vis::log_robot_state};
+use crate::{chess::Piece, termdev::TerminalDevice};
 
-const BOTTOM_ARM_LENGTH: f64 = 0.29;
-const TOP_ARM_LENGTH: f64 = 0.29;
+#[cfg(feature = "vis")]
+use crate::visualizer::arm_vis::log_robot_state;
+
+pub const BOARD_TO_ARM_TRANSFORM: Vec3 =
+    Vec3::new(0.1411907894023803, 0.02200000000000005, 0.0243057524245006);
+const BOTTOM_ARM_LENGTH: f32 = 0.29;
+const TOP_ARM_LENGTH: f32 = 0.29;
 
 // pub static REC: Lazy<Mutex<RecordingStream>> = Lazy::new(|| {
 //     Mutex::new(
@@ -25,10 +30,9 @@ const TOP_ARM_LENGTH: f64 = 0.29;
 pub const CLAW_CHANGE_DELAY: u64 = 700;
 
 pub struct Arm {
-    pub claw_pos: Vector3<f64>,
+    pub claw_pos: Vec3,
 
-    pub translation_offset: Vector3<f64>,
-    /// (0,0,0) is in the middle of the H1 square
+    pub translation_offset: Vec3,
     writer: crate::termdev::TerminalWriter,
     reader: BufReader<crate::termdev::TerminalReader>,
     pub grabbed_piece: Option<Piece>,
@@ -40,8 +44,8 @@ impl Arm {
         let reader = BufReader::new(reader);
 
         Arm {
-            claw_pos: Vector3::new(0.0, 0.0, 0.0),
-            translation_offset: Vector3::new(0.0, 0.0, 0.0),
+            claw_pos: Vec3::new(0.0, 0.0, 0.0),
+            translation_offset: Vec3::new(0.0, 0.0, 0.0),
             reader,
             writer,
             grabbed_piece: None,
@@ -77,10 +81,10 @@ impl Arm {
     pub fn calib_all_except_sideways(&mut self) -> std::io::Result<()> {
         self.send_command(Command::CalibrateArm)?;
         let cur_y = self.claw_pos.y;
-        self.move_claw_to(Vector3::new(0.0, cur_y, 0.15))?;
+        self.move_claw_to(Vec3::new(0.0, cur_y, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
         self.send_command(Command::CalibrateArm)?;
-        self.move_claw_to(Vector3::new(0.0, cur_y, 0.15))?;
+        self.move_claw_to(Vec3::new(0.0, cur_y, 0.15))?;
         std::thread::sleep(Duration::from_millis(100));
         self.send_command(Command::CalibrateArm)?;
         std::thread::sleep(Duration::from_millis(100));
@@ -92,12 +96,11 @@ impl Arm {
             self.send_command(Command::Position)?;
             let response = self.get_response()?;
             if let Response::Position(a1, a2, sd) = response {
+                #[cfg(feature = "vis")]
                 log_robot_state(sd, a1, a2, self.grabbed_piece);
-                let a1 = a1 as f64;
-                let a2 = a2 as f64;
-                let sd = sd as f64;
+
                 let cord2d = Arm::position_from_angles(a1, a2);
-                self.claw_pos = Vector3::new(cord2d[0], sd, cord2d[1]) + self.translation_offset;
+                self.claw_pos = Vec3::new(cord2d[0], sd, cord2d[1]) + self.translation_offset;
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -105,21 +108,21 @@ impl Arm {
         Ok(())
     }
 
-    pub fn move_claw(&mut self, change: Vector3<f64>) -> std::io::Result<()> {
+    pub fn move_claw(&mut self, change: Vec3) -> std::io::Result<()> {
         self.move_claw_to(self.claw_pos + change)
     }
 
-    pub fn move_claw_to(&mut self, position: Vector3<f64>) -> std::io::Result<()> {
+    pub fn move_claw_to(&mut self, position: Vec3) -> std::io::Result<()> {
         self.claw_pos = position;
         let (a1, a2, sd) = dbg!(self.angles(position));
         self.send_command(Command::Queue(a1 as f32, a2 as f32, sd as f32, 1.0))?;
         Ok(())
     }
 
-    fn angles(&self, pos: Vector3<f64>) -> (f64, f64, f64) {
+    fn angles(&self, pos: Vec3) -> (f32, f32, f32) {
         let (a1, a2) = Arm::arm_2d_angles(pos - self.translation_offset);
-        let a1 = a1 * 180.0 / core::f64::consts::PI;
-        let a2 = a2 * 180.0 / core::f64::consts::PI;
+        let a1 = a1 * 180.0 / core::f32::consts::PI;
+        let a2 = a2 * 180.0 / core::f32::consts::PI;
         (a1, a2, (pos - self.translation_offset).y)
     }
 
@@ -151,9 +154,9 @@ impl Arm {
         }
     }
 
-    pub fn arm_2d_angles(position: Vector3<f64>) -> (f64, f64) {
+    pub fn arm_2d_angles(position: Vec3) -> (f32, f32) {
         let theta = (position.z).atan2(position.x);
-        let d = Vector2::new(position.x, position.z).norm();
+        let d = Vec2::new(position.x, position.z).length();
         let q2 = -((d.powi(2) - BOTTOM_ARM_LENGTH.powi(2) - TOP_ARM_LENGTH.powi(2))
             / (2.0 * BOTTOM_ARM_LENGTH * TOP_ARM_LENGTH))
             .acos();
@@ -165,22 +168,22 @@ impl Arm {
     }
 
     /// Calculates the claw position from the angles given in degrees.
-    pub fn position_from_angles(theta1: f64, theta2: f64) -> Vector2<f64> {
-        let bottom_arm = Vector2::new(-BOTTOM_ARM_LENGTH, 0.0);
-        let top_arm = Vector2::new(-TOP_ARM_LENGTH, 0.0);
-        let rot1 = Rotation2::new(-theta1 * PI / 180.0);
-        let rot2 = Rotation2::new(-theta2 * PI / 180.0);
-        rot1 * (bottom_arm + rot2 * top_arm)
+    pub fn position_from_angles(theta1: f32, theta2: f32) -> Vec2 {
+        let bottom_arm = Vec2::new(-BOTTOM_ARM_LENGTH, 0.0);
+        let top_arm = Vec2::new(-TOP_ARM_LENGTH, 0.0);
+        let rot1 = Affine2::from_angle(-theta1 * PI / 180.0);
+        let rot2 = Affine2::from_angle(-theta2 * PI / 180.0);
+        rot1.transform_point2(bottom_arm + rot2.transform_point2(top_arm))
     }
 
-    pub fn smooth_move_z(&mut self, z: f64) -> std::io::Result<()> {
+    pub fn smooth_move_z(&mut self, z: f32) -> std::io::Result<()> {
         let mut pos = self.claw_pos;
         pos.z = z;
         self.practical_smooth_move_claw_to(pos)
     }
 
     /// Computes the coordinates to move to compensate for inaccuracies when moving on the opposite end of the board.
-    pub fn practical_real_world_coordinate(mut pos: Vector3<f64>) -> Vector3<f64> {
+    pub fn practical_real_world_coordinate(mut pos: Vec3) -> Vec3 {
         let threshold = 0.075;
         if pos.x >= threshold {
             pos.x += (pos.x - threshold) / (0.35 - threshold) * 0.001;
@@ -189,11 +192,11 @@ impl Arm {
         pos
     }
 
-    pub fn practical_smooth_move_claw_to(&mut self, pos: Vector3<f64>) -> std::io::Result<()> {
+    pub fn practical_smooth_move_claw_to(&mut self, pos: Vec3) -> std::io::Result<()> {
         let target_pos = Self::practical_real_world_coordinate(pos);
         // let target_pos = pos;
-        const N_POINTS_CM: f64 = 3.0;
-        let npoints = (self.claw_pos - target_pos).norm() * 100.0 * N_POINTS_CM;
+        const N_POINTS_CM: f32 = 3.0;
+        let npoints = (self.claw_pos - target_pos).length() * 100.0 * N_POINTS_CM;
         for chunk in linspace(self.claw_pos, target_pos, npoints as u32)
             .map(|e| (e, Arm::speed_factor(self.claw_pos, e, target_pos)))
             .collect::<Vec<_>>()
@@ -226,8 +229,8 @@ impl Arm {
         Ok(())
     }
 
-    pub fn speed_factor(start: Vector3<f64>, cur: Vector3<f64>, dst: Vector3<f64>) -> f64 {
-        let min_dist = (start - cur).norm().min((cur - dst).norm());
+    pub fn speed_factor(start: Vec3, cur: Vec3, dst: Vec3) -> f32 {
+        let min_dist = (start - cur).length().min((cur - dst).length());
         if min_dist < 0.05 {
             min_dist / 0.05 * 0.8 + 0.2
         } else {
@@ -279,10 +282,10 @@ where
     T: Copy
         + ops::Sub<Output = T>
         + ops::Add<Output = T>
-        + ops::Div<f64, Output = T>
-        + ops::Mul<f64, Output = T>,
+        + ops::Div<f32, Output = T>
+        + ops::Mul<f32, Output = T>,
 {
     let n = n.max(2);
-    let step_size = (end - start) / (n - 1) as f64;
-    (0..=n - 1).map(move |i| start + step_size * i as f64)
+    let step_size = (end - start) / (n - 1) as f32;
+    (0..=n - 1).map(move |i| start + step_size * i as f32)
 }

@@ -3,7 +3,7 @@ use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use nalgebra::Vector3;
+use glam::Vec3;
 use nix::sys::termios::BaudRate;
 use planner::{arm::Arm, termdev::TerminalDevice};
 use robby_fischer::Command;
@@ -59,7 +59,7 @@ fn main() {
     }
 }
 
-fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
+fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vec3> {
     println!("starting...");
     let mut td = TerminalDevice::new("/dev/serial/by-id/usb-alebe_herla_robby_fischer_1972-if00")?;
     td.configure(BaudRate::B115200)?;
@@ -70,7 +70,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
     arm.calib()?;
     arm.sync_pos()?;
     println!("calib check done!");
-    arm.translation_offset = Vector3::new(0.0, 0.0, 0.0);
+    arm.translation_offset = Vec3::new(0.0, 0.0, 0.0);
 
     let mut theta1 = 90.0;
     let mut theta2 = 90.0;
@@ -123,8 +123,7 @@ fn run(_terminal: &mut Terminal<impl Backend>) -> anyhow::Result<Vector3<f64>> {
             }
             if changed {
                 let new_claw_pos2d = Arm::position_from_angles(theta1, theta2);
-                let new_claw_pos =
-                    Vector3::new(new_claw_pos2d[0], arm.claw_pos.y, new_claw_pos2d[1]);
+                let new_claw_pos = Vec3::new(new_claw_pos2d[0], arm.claw_pos.y, new_claw_pos2d[1]);
                 arm.practical_smooth_move_claw_to(new_claw_pos).unwrap();
                 changed = false;
             }

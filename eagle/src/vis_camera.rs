@@ -1,6 +1,6 @@
 use opencv::videoio::{self, VideoCaptureTrait};
 
-use rerun::external::image::{ImageBuffer, RgbImage};
+use image::{ImageBuffer, RgbImage};
 
 use opencv::prelude::MatTraitConst;
 use opencv::prelude::MatTraitConstManual;

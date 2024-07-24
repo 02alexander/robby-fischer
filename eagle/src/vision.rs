@@ -2,6 +2,8 @@ use freenectrs::freenect::{
     FreenectContext, FreenectDepthFormat, FreenectDepthStream, FreenectResolution,
     FreenectVideoFormat, FreenectVideoStream,
 };
+use image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
+use opencv::prelude::MatTraitConstManual;
 use opencv::{
     calib3d::project_points_def,
     core as cvvec,
@@ -10,11 +12,11 @@ use opencv::{
     imgproc::{gaussian_blur_def, sobel},
     prelude::{CLAHETrait, DataType, MatTraitConst},
 };
-use rerun::external::image::{GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage};
-use rerun::{components::Position2D, Points2D, RecordingStream};
-use rerun::external::glam::{Affine3A, Mat3, Quat, Vec2, Vec3};
 
-use opencv::prelude::MatTraitConstManual;
+#[cfg(feature = "vis")]
+use rerun::{Points2D, RecordingStream};
+
+use glam::{Mat3, Vec2, Vec3};
 
 use crate::Detector;
 
@@ -50,21 +52,11 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
 
         let clahe_grayimg = mat_to_image::<Luma<u8>>(&clahed_mat);
 
-    
-        RecordingStream::thread_local(rerun::StoreKind::Recording)
-            .unwrap()
-            .log(
-                format!("images/clahed{channel}"),
-                &rerun::Image::try_from(clahe_grayimg.clone()).unwrap(),
-            )
-            .unwrap();
-
         let mut blurred_clahed_mat = cvvec::Mat::default();
         gaussian_blur_def(&clahed_mat, &mut blurred_clahed_mat, (3, 3).into(), 4.0).unwrap();
 
         let mut sobel_mat: cvvec::Mat = cvvec::Mat::default();
 
-        // sobel_def(&out_arr, &mut edges, 4, , dy)
         sobel(
             &blurred_clahed_mat,
             &mut sobel_mat,
@@ -77,7 +69,6 @@ fn highlight_edges(color_img: &RgbImage) -> (RgbImage, RgbImage) {
             BORDER_DEFAULT,
         )
         .unwrap();
-        // canny_def(&out_arr, &mut edges, 200.0, 250.0).unwrap();
 
         let mut scaled_sobel = cvvec::Mat::default();
         convert_scale_abs_def(&sobel_mat, &mut scaled_sobel).unwrap();
@@ -165,36 +156,42 @@ impl CoordConverter {
         {
             return None;
         }
-        let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
 
-        let rot_vec = Vec3::new(rvec.as_slice()[0], rvec.as_slice()[1], rvec.as_slice()[2]);
-        let rot = Affine3A::from_axis_angle(rot_vec.normalize(), rot_vec.length());
-        let translation =
-            0.42 / 8.4 * Vec3::new(tvec.as_slice()[0], tvec.as_slice()[1], tvec.as_slice()[2]);
+        #[cfg(feature = "vis")]
+        {
+            use glam::{Affine3A, Quat};
+            let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
+            let rot_vec = Vec3::new(rvec.as_slice()[0], rvec.as_slice()[1], rvec.as_slice()[2]);
+            let rot = Affine3A::from_axis_angle(rot_vec.normalize(), rot_vec.length());
+            let translation =
+                0.42 / 8.4 * Vec3::new(tvec.as_slice()[0], tvec.as_slice()[1], tvec.as_slice()[2]);
 
-        let camera_to_a1 =
-            Affine3A::from_rotation_translation(rot.to_scale_rotation_translation().1, translation)
-                .inverse();
-        let a8_to_a1 = Affine3A::from_rotation_translation(
-            Quat::from_axis_angle(Vec3::Z, -std::f32::consts::PI / 2.0),
-            Vec3::new(0.0, 0.35, 0.0),
-        );
-        let camera_to_a8 = a8_to_a1.inverse() * camera_to_a1;
+            let camera_to_a1 = Affine3A::from_rotation_translation(
+                rot.to_scale_rotation_translation().1,
+                translation,
+            )
+            .inverse();
+            let a8_to_a1 = Affine3A::from_rotation_translation(
+                Quat::from_axis_angle(Vec3::Z, -std::f32::consts::PI / 2.0),
+                Vec3::new(0.0, 0.35, 0.0),
+            );
+            let camera_to_a8 = a8_to_a1.inverse() * camera_to_a1;
 
-        let (_scale, rotation, translation) = camera_to_a8.to_scale_rotation_translation();
-        rec.log(
-            "a8origin/pinhole",
-            &rerun::Transform3D::from_translation_rotation(translation, rotation),
-        )
-        .unwrap();
-        rec.log(
-            "a8origin/pinhole",
-            &rerun::Pinhole::from_focal_length_and_resolution(
-                [color_param.row(0)[0], color_param.row(1)[1]],
-                [640.0, 480.0],
-            ),
-        )
-        .unwrap();
+            let (_scale, rotation, translation) = camera_to_a8.to_scale_rotation_translation();
+            rec.log(
+                "a8origin/pinhole",
+                &rerun::Transform3D::from_translation_rotation(translation, rotation),
+            )
+            .unwrap();
+            rec.log(
+                "a8origin/pinhole",
+                &rerun::Pinhole::from_focal_length_and_resolution(
+                    [color_param.row(0)[0], color_param.row(1)[1]],
+                    [640.0, 480.0],
+                ),
+            )
+            .unwrap();
+        }
 
         Some(CoordConverter {
             camera_matrix,
@@ -379,7 +376,8 @@ impl Vision {
         let color_img: ImageBuffer<Rgb<_>, _> =
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
-    
+
+        #[cfg(feature = "vis")]
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
@@ -399,8 +397,7 @@ impl Vision {
         });
         mask.iter_mut().for_each(|p| *p = 0);
 
-    
-        let mut square_mid_points: Vec<Position2D> = Vec::new();
+        let mut square_mid_points: Vec<Vec2> = Vec::new();
 
         let mut square_intensities = Vec::new();
         let mut bounding_boxes = Vec::new();
@@ -419,8 +416,8 @@ impl Vision {
                     0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
 
                 let _ = &mid_point;
-            
-                square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+                square_mid_points.push(Vec2::new(mid_point.x, mid_point.y));
 
                 square_intensities.push(intensities);
             }
@@ -439,8 +436,8 @@ impl Vision {
             self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
 
             let _ = &mid_point;
-        
-            square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+            square_mid_points.push(Vec2::new(mid_point.x, mid_point.y));
 
             square_intensities.push(intensities);
         }
@@ -474,7 +471,8 @@ impl Vision {
         let color_img: ImageBuffer<Rgb<_>, _> =
             ImageBuffer::from_vec(KINECT_WIDTH as u32, KINECT_HEIGHT as u32, data.to_vec())
                 .unwrap();
-    
+
+        #[cfg(feature = "vis")]
         RecordingStream::thread_local(rerun::StoreKind::Recording)
             .unwrap()
             .log(
@@ -494,8 +492,7 @@ impl Vision {
         });
         mask.iter_mut().for_each(|p| *p = 0);
 
-    
-        let mut square_mid_points: Vec<Position2D> = Vec::new();
+        let mut square_mid_points: Vec<Vec2> = Vec::new();
 
         let mut square_intensities = Vec::new();
         for rank in 0..8 {
@@ -512,8 +509,8 @@ impl Vision {
                     0.9 * self.count_avg[file + rank * 8] + 0.1 * count as f32;
 
                 let _ = &mid_point;
-            
-                square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+                square_mid_points.push(Vec2::new(mid_point.x, mid_point.y));
 
                 square_intensities.push(intensities);
             }
@@ -531,8 +528,8 @@ impl Vision {
             self.count_avg[64 + rank] = 0.9 * self.count_avg[64 + rank] + 0.1 * count as f32;
 
             let _ = &mid_point;
-        
-            square_mid_points.push(Position2D::new(mid_point.x, mid_point.y));
+
+            square_mid_points.push(Vec2::new(mid_point.x, mid_point.y));
 
             square_intensities.push(intensities);
         }
@@ -559,17 +556,9 @@ impl Vision {
             })
             .collect();
 
-    
+        #[cfg(feature = "vis")]
         {
             let rec = RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
-            // for rank in 0..8 {
-            //     for file in 0..8 {
-            //         if with_pieces[rank*8+file] {
-            //             rec.log(format!("plot{rank}_{file}"), &BarChart::new(square_intensities[rank*8+file].as_slice())).unwrap();
-            //         }
-            //     }
-            // }
-
             rec.log("images/mask", &rerun::Image::try_from(mask).unwrap())
                 .unwrap();
             rec.log(
@@ -588,6 +577,7 @@ impl Vision {
             )
             .unwrap();
         }
+
         Some(
             is_white
                 .iter()

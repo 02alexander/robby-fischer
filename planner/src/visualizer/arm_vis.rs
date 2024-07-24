@@ -30,7 +30,7 @@ pub fn init_arm_vis(rec: &rerun::RecordingStream) {
     rec.log(
         "arm.urdf",
         &rerun::Transform3D::from_translation_rotation(
-            [-0.185, 0.080, 0.04],
+            [-0.185, 0.130, 0.04],
             Rotation3D::AxisAngle(RotationAxisAngle::new([0., 0., 1.], Angle::Degrees(180.0))),
         ),
     )
@@ -55,8 +55,8 @@ pub fn log_robot_state(
     positions[2] = -(top - std::f32::consts::PI / 2.0);
     positions[3] = -(bottom + top - std::f32::consts::PI);
     if claw_state.is_some() {
-        positions[4] = -0.02;
-        positions[5] = -0.02;
+        positions[4] = -0.01;
+        positions[5] = -0.01;
     } else {
         positions[4] = 0.0;
         positions[5] = 0.0;

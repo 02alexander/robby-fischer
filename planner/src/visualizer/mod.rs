@@ -1,6 +1,5 @@
 pub mod arm_vis;
-pub mod extcamera;
-pub mod mesh_conversion;
-pub mod visualizer;
+pub mod board_vis;
+pub mod gltf_logging;
 
-pub use visualizer::*;
+pub use board_vis::*;

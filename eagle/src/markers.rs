@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use glam::Vec2;
 use opencv::{
     core::{no_array, Point2f, Vector},
     objdetect::{
@@ -9,7 +10,6 @@ use opencv::{
     },
     prelude::{ArucoDetectorTraitConst, Mat},
 };
-use rerun::external::glam::Vec2;
 pub struct Detector {
     detector: ArucoDetector,
     markers: HashMap<i32, Marker>,

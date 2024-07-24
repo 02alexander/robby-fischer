@@ -47,8 +47,8 @@ impl Role {
         Role::Duck,
     ];
 
-    pub const MAX_ROLE_HEIGHT: f64 = 0.079;
-    pub fn height(&self) -> f64 {
+    pub const MAX_ROLE_HEIGHT: f32 = 0.079;
+    pub fn height(&self) -> f32 {
         match *self {
             Role::Pawn => 0.038,
             Role::Knight => 0.054,
@@ -61,7 +61,7 @@ impl Role {
     }
 
     /// where the arm should grip the piece
-    pub fn grip_height(&self) -> f64 {
+    pub fn grip_height(&self) -> f32 {
         match *self {
             Role::Pawn => 0.025,
             Role::Knight => 0.025,

@@ -4,11 +4,15 @@ use crate::{
     moves::{
         bishop_moves, king_moves, knight_moves, pawn_moves, queen_moves, rook_moves, PieceMove,
     },
-    visualizer::BoardVisualizer,
 };
-use lazy_static::lazy_static;
-use nalgebra::Vector3;
+
+#[cfg(feature = "vis")]
+use crate::visualizer::BOARD_VISUALIZER;
+#[cfg(feature = "vis")]
 use rerun::Vec3D;
+
+use glam::Vec3;
+use lazy_static::lazy_static;
 use shakmaty::{Chess, Position};
 
 lazy_static! {
@@ -75,7 +79,7 @@ pub fn chess_pos_to_board(pos: Chess) -> Option<Board> {
 }
 
 impl Board {
-    pub const SQUARE_SIZE: f64 = 0.05;
+    pub const SQUARE_SIZE: f32 = 0.05;
 
     pub fn new_colors(&self, new_colors: [[Option<Color>; 8]; 9]) -> Option<(Board, PieceMove)> {
         let old_colors = self.position.map(|file| {
@@ -286,15 +290,15 @@ impl Board {
         moves
     }
 
-    pub fn real_world_coordinate(file: u32, rank: u32) -> Vector3<f64> {
+    pub fn real_world_coordinate(file: u32, rank: u32) -> Vec3 {
         if file >= 8 {
-            let x = (7.0 - rank as f64) * Self::SQUARE_SIZE;
-            let y = (file as f64 + 0.8) * Self::SQUARE_SIZE + if file >= 11 { 0.01 } else { 0.0 };
-            Vector3::new(x, y, -0.005)
+            let x = (7.0 - rank as f32) * Self::SQUARE_SIZE;
+            let y = (file as f32 + 0.8) * Self::SQUARE_SIZE + if file >= 11 { 0.01 } else { 0.0 };
+            Vec3::new(x, y, -0.005)
         } else {
-            Vector3::new(
-                (7.0 - rank as f64) * Self::SQUARE_SIZE,
-                (file as f64) * Self::SQUARE_SIZE,
+            Vec3::new(
+                (7.0 - rank as f32) * Self::SQUARE_SIZE,
+                (file as f32) * Self::SQUARE_SIZE,
                 0.0,
             )
         }
@@ -303,51 +307,48 @@ impl Board {
     pub fn move_along_trajectory(
         &mut self,
         arm: &mut Arm,
-        trajectory: &[Vector3<f64>],
+        trajectory: &[Vec3],
     ) -> anyhow::Result<()> {
+        #[cfg(feature = "vis")]
         let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
-        let mut strip: Vec<_> = trajectory
-            .iter()
-            .map(|v| Vec3D::new(v[0] as f32, v[1] as f32, v[2] as f32))
-            .collect();
-        strip.insert(
-            0,
-            Vec3D::new(
-                arm.claw_pos.x as f32,
-                arm.claw_pos.y as f32,
-                arm.claw_pos.z as f32,
-            ),
-        );
-        rec.log(
-            "a8origin/trajectory",
-            &rerun::LineStrips3D::new(std::iter::once(strip))
-                .with_radii(std::iter::once(rerun::Radius::new_scene_units(0.002))),
-        )
-        .unwrap();
+
+        #[cfg(feature = "vis")]
+        {
+            let mut strip: Vec<_> = trajectory
+                .iter()
+                .map(|v| Vec3D::new(v[0] as f32, v[1] as f32, v[2] as f32))
+                .collect();
+            strip.insert(
+                0,
+                Vec3D::new(
+                    arm.claw_pos.x as f32,
+                    arm.claw_pos.y as f32,
+                    arm.claw_pos.z as f32,
+                ),
+            );
+            rec.log(
+                "a8origin/trajectory",
+                &rerun::LineStrips3D::new([strip])
+                    .with_radii([rerun::Radius::new_scene_units(0.002)]),
+            )
+            .unwrap();
+        }
 
         for pos in trajectory {
             arm.practical_smooth_move_claw_to(*pos)?;
         }
-
-        // rec.log("a8origin/trajectory", &rerun::LineStrips3D::new(&[Vec::<Vec3D>::new()])).unwrap();
+        #[cfg(feature = "vis")]
+        rec.log("a8origin/trajectory", &rerun::Clear::flat())
+            .unwrap();
         Ok(())
     }
 
-    pub fn move_piece(
-        &mut self,
-        arm: &mut Arm,
-        start: Square,
-        end: Square,
-        board_visualizer: &mut BoardVisualizer,
-    ) -> std::io::Result<()> {
+    pub fn move_piece(&mut self, arm: &mut Arm, start: Square, end: Square) -> std::io::Result<()> {
         assert!(start.file < 14);
         assert!(start.rank < 8);
         assert!(end.file < 14);
         assert!(end.rank < 8);
         if let Some(piece) = self.position[start.file][start.rank].take() {
-            arm.grabbed_piece = Some(piece);
-            let rec = rerun::RecordingStream::thread_local(rerun::StoreKind::Recording).unwrap();
-            board_visualizer.log_piece_positions(&rec, &self);
             let role = piece.role;
 
             // TODO: port into Trajectory struct.
@@ -366,6 +367,10 @@ impl Board {
             self.move_along_trajectory(arm, &trajectory).unwrap();
             arm.grip()?;
 
+            arm.grabbed_piece = Some(piece);
+            #[cfg(feature = "vis")]
+            BOARD_VISUALIZER.log_piece_positions(&self);
+
             // Moves to end and releases the piece
 
             trajectory.clear();
@@ -383,7 +388,9 @@ impl Board {
             arm.release()?;
             arm.grabbed_piece = None;
             self.position[end.file][end.rank] = Some(piece);
-            board_visualizer.log_piece_positions(&rec, &self);
+
+            #[cfg(feature = "vis")]
+            BOARD_VISUALIZER.log_piece_positions(&self);
 
             // Move claw up so it isn't in the way.
             trajectory.clear();
@@ -447,59 +454,3 @@ impl std::fmt::Display for Board {
         Ok(())
     }
 }
-
-// impl Pieceholder {
-//     const SQUARE_SIZE: f64 = 0.05;
-//     const MID_MARIGIN: f64 = 0.01;
-//     const BOARD_OFFSET: Vector3<f64> = Vector3::new(0.0, 8.0 * Board::SQUARE_SIZE + 0.045, 0.0);
-
-//     pub fn empty() -> Pieceholder {
-//         Pieceholder {
-//             occupied: [[false; 8]; 6],
-//         }
-//     }
-
-//     pub fn full() -> Pieceholder {
-//         Pieceholder {
-//             occupied: [[true; 8]; 6],
-//         }
-//     }
-
-//     pub fn pop(&mut self, piece: Piece) -> Option<(usize, usize)> {
-//         for file in 0..self.occupied.len() {
-//             for rank in 0..self.occupied[0].len() {
-//                 if self.occupied[file][rank] && HOLDER_POSISIONS[file][rank] == piece {
-//                     self.occupied[file][rank] = false;
-//                     return Some((file, rank));
-//                 }
-//             }
-//         }
-//         None
-//     }
-
-//     pub fn push(&mut self, piece: Piece) -> Option<(usize, usize)> {
-//         for file in 0..self.occupied.len() {
-//             for rank in 0..self.occupied[0].len() {
-//                 if !self.occupied[file][rank] && HOLDER_POSISIONS[file][rank] == piece {
-//                     self.occupied[file][rank] = true;
-//                     return Some((file, rank));
-//                 }
-//             }
-//         }
-//         None
-//     }
-
-//     pub fn real_world_coordinate(idx: (usize, usize)) -> Vector3<f64> {
-//         let (file, rank) = idx;
-//         let mut x = rank as f64 * Self::SQUARE_SIZE;
-//         if rank >= 4 {
-//             x += Self::MID_MARIGIN;
-//         }
-//         let mut y = file as f64 * Self::SQUARE_SIZE;
-//         if file >= 4 {
-//             y += Self::MID_MARIGIN;
-//         }
-
-//         Vector3::new(x, y, 0.0) + Self::BOARD_OFFSET
-//     }
-// }

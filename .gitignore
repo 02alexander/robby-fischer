@@ -1,4 +1,4 @@
 /target
 venv/
-# flake.nix
-# flake.lock
+flake.nix
+flake.lock
